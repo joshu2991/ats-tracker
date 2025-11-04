@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'timeout' => env('ATS_ANALYSIS_TIMEOUT', 30),
+    ],
+
 ];

@@ -1,19 +1,23 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { FormEvent, useRef, useState } from 'react';
-import KeywordsList from '../components/KeywordsList';
 import ScoreBreakdown from '../components/ScoreBreakdown';
 import ScoreDisplay from '../components/ScoreDisplay';
-import SuggestionsPanel from '../components/SuggestionsPanel';
 
 interface Analysis {
     filename?: string;
-    parsedText?: string;
-    totalScore?: number;
-    formatScore?: { score: number; breakdown: Record<string, number> };
-    contactScore?: { score: number; breakdown: Record<string, number> };
-    keywordAnalysis?: { keywords: Record<string, number>; uniqueCount: number; score: number };
-    lengthScore?: { score: number; wordCount: number; breakdown: Record<string, number> };
+    overall_score?: number;
+    confidence?: 'high' | 'medium' | 'low';
+    parseability_score?: number;
+    format_score?: number;
+    keyword_score?: number;
+    contact_score?: number;
+    content_score?: number;
+    critical_issues?: string[];
+    warnings?: string[];
     suggestions?: string[];
+    ai_unavailable?: boolean;
+    ai_error_message?: string | null;
+    estimated_cost?: number;
 }
 
 interface Props {
@@ -113,7 +117,7 @@ export default function ResumeChecker({ analysis }: Props) {
                         </p>
                     </div>
 
-                    {!analysis || !analysis.totalScore ? (
+                    {!analysis || analysis.overall_score === undefined ? (
                         <form onSubmit={handleSubmit}>
                             <div
                                 className={`relative rounded-lg border-2 border-dashed p-8 transition-colors ${
@@ -222,7 +226,34 @@ export default function ResumeChecker({ analysis }: Props) {
                         </form>
                     ) : (
                         <div className="space-y-6">
-                            {/* Score Display */}
+                            {/* AI Unavailable Warning */}
+                            {analysis.ai_unavailable && (
+                                <div className="rounded-lg border-2 border-yellow-400 bg-yellow-50 p-4 dark:bg-yellow-900/20 dark:border-yellow-600">
+                                    <div className="flex items-start">
+                                        <svg
+                                            className="mr-3 h-5 w-5 text-yellow-600 dark:text-yellow-400"
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                        >
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                                clipRule="evenodd"
+                                            />
+                                        </svg>
+                                        <div className="flex-1">
+                                            <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                                                AI Analysis Unavailable
+                                            </h3>
+                                            <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
+                                                {analysis.ai_error_message || 'This analysis is based on technical checks only. Some insights may be limited.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Score Display with Confidence Badge */}
                             <div className="rounded-lg bg-white p-8 shadow dark:bg-gray-800">
                                 <div className="mb-4 text-center">
                                     <h2 className="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
@@ -231,37 +262,126 @@ export default function ResumeChecker({ analysis }: Props) {
                                     <p className="text-sm text-gray-500 dark:text-gray-400">
                                         File: {analysis.filename}
                                     </p>
+                                    {/* Confidence Badge */}
+                                    {analysis.confidence && (
+                                        <div className="mt-3 inline-flex">
+                                            <span
+                                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                                    analysis.confidence === 'high'
+                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                                        : analysis.confidence === 'medium'
+                                                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                                                }`}
+                                            >
+                                                {analysis.confidence.charAt(0).toUpperCase() + analysis.confidence.slice(1)} Confidence
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
-                                <ScoreDisplay score={analysis.totalScore || 0} />
+                                <ScoreDisplay score={analysis.overall_score || 0} />
                             </div>
 
                             {/* Score Breakdown */}
-                            {analysis.formatScore && analysis.contactScore && analysis.keywordAnalysis && analysis.lengthScore && (
-                                <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
-                                    <h2 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">
-                                        Score Breakdown
+                            <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
+                                <h2 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">
+                                    Score Breakdown
+                                </h2>
+                                <ScoreBreakdown
+                                    parseabilityScore={analysis.parseability_score}
+                                    formatScore={analysis.format_score}
+                                    keywordScore={analysis.keyword_score}
+                                    contactScore={analysis.contact_score}
+                                    contentScore={analysis.content_score}
+                                />
+                            </div>
+
+                            {/* Critical Issues */}
+                            {analysis.critical_issues && Array.isArray(analysis.critical_issues) && analysis.critical_issues.length > 0 && (
+                                <div className="rounded-lg border-2 border-red-400 bg-red-50 p-6 shadow dark:bg-red-900/20 dark:border-red-600">
+                                    <h2 className="mb-4 flex items-center text-xl font-bold text-red-900 dark:text-red-200">
+                                        <svg
+                                            className="mr-2 h-5 w-5"
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                        >
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                                clipRule="evenodd"
+                                            />
+                                        </svg>
+                                        Critical Fixes Required
                                     </h2>
-                                    <ScoreBreakdown
-                                        formatScore={analysis.formatScore}
-                                        contactScore={analysis.contactScore}
-                                        keywordScore={analysis.keywordAnalysis?.score || 0}
-                                        lengthScore={analysis.lengthScore}
-                                    />
+                                    <ul className="space-y-2">
+                                        {analysis.critical_issues.map((issue, index) => (
+                                            <li key={index} className="flex items-start text-sm text-red-800 dark:text-red-200">
+                                                <span className="mr-2 mt-1">•</span>
+                                                <span>{issue}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             )}
 
-                            {/* Suggestions */}
-                            {analysis.suggestions && Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0 && (
-                                <SuggestionsPanel suggestions={analysis.suggestions} />
+                            {/* Warnings */}
+                            {analysis.warnings && Array.isArray(analysis.warnings) && analysis.warnings.length > 0 && (
+                                <div className="rounded-lg border-2 border-yellow-400 bg-yellow-50 p-6 shadow dark:bg-yellow-900/20 dark:border-yellow-600">
+                                    <h2 className="mb-4 flex items-center text-xl font-bold text-yellow-900 dark:text-yellow-200">
+                                        <svg
+                                            className="mr-2 h-5 w-5"
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                        >
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                                clipRule="evenodd"
+                                            />
+                                        </svg>
+                                        Warnings
+                                    </h2>
+                                    <ul className="space-y-2">
+                                        {analysis.warnings.map((warning, index) => (
+                                            <li key={index} className="flex items-start text-sm text-yellow-800 dark:text-yellow-200">
+                                                <span className="mr-2 mt-1">⚠️</span>
+                                                <span>{warning}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
                             )}
 
-                            {/* Keywords */}
-                            {analysis.keywordAnalysis && analysis.keywordAnalysis.keywords && (
-                                <KeywordsList
-                                    keywords={analysis.keywordAnalysis.keywords}
-                                    uniqueCount={analysis.keywordAnalysis.uniqueCount || 0}
-                                />
+                            {/* Suggestions/Improvements */}
+                            {analysis.suggestions && Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0 && (
+                                <div className="rounded-lg border-2 border-blue-400 bg-blue-50 p-6 shadow dark:bg-blue-900/20 dark:border-blue-600">
+                                    <h2 className="mb-4 flex items-center text-xl font-bold text-blue-900 dark:text-blue-200">
+                                        <svg
+                                            className="mr-2 h-5 w-5"
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                        >
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                        </svg>
+                                        Recommended Improvements
+                                    </h2>
+                                    <ul className="space-y-2">
+                                        {analysis.suggestions.map((suggestion, index) => (
+                                            <li key={index} className="flex items-start text-sm text-blue-800 dark:text-blue-200">
+                                                <span className="mr-2 mt-1">💡</span>
+                                                <span>{suggestion}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
                             )}
+
+                            {/* Footer Disclaimer */}
+                            <div className="rounded-lg bg-gray-100 p-4 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                                <p>
+                                    This analysis is based on documented ATS best practices from industry research including TopResume, Jobscan, and Harvard Career Services. While no tool can guarantee compatibility with all ATS systems, following these recommendations significantly improves your chances of passing automated screening. Different companies use different ATS systems with varying requirements.
+                                </p>
+                            </div>
 
                             {/* Action Button */}
                             <div className="text-center">
