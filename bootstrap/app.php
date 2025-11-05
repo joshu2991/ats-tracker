@@ -5,6 +5,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Inertia\Inertia;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -19,5 +20,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response) {
+            if (in_array($response->getStatusCode(), [404, 405])) {
+                return Inertia::render(
+                    $response->getStatusCode() === 404 ? 'NotFound' : 'MethodNotAllowed',
+                    ['status' => $response->getStatusCode()],
+                )->toResponse(request());
+            }
+
+            return $response;
+        });
     })->create();
