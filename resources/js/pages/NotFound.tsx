@@ -78,13 +78,6 @@ export default function NotFound() {
                                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 hover:-translate-y-0.5 transition-all duration-200 shadow-[0_4px_6px_rgba(79,70,229,0.3)]"
                             >
                                 <Home className="w-4 h-4" />
-                                Go to Resume Checker
-                            </Link>
-                            <Link
-                                href="/"
-                                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-slate-300 bg-white text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
-                            >
-                                <FileSearch className="w-4 h-4" />
                                 Go to Home
                             </Link>
                         </motion.div>

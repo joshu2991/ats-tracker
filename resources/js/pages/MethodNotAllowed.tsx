@@ -84,13 +84,6 @@ export default function MethodNotAllowed({ status = 405 }: Props) {
                                 <Home className="w-4 h-4" />
                                 Go to Resume Checker
                             </Link>
-                            <Link
-                                href="/"
-                                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-slate-300 bg-white text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
-                            >
-                                <ArrowLeft className="w-4 h-4" />
-                                Go Back
-                            </Link>
                         </motion.div>
 
                         {/* Decorative Elements */}
