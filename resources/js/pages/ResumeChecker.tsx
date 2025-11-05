@@ -92,7 +92,6 @@ export default function ResumeChecker({ analysis }: Props) {
 
         setSelectedFile(file);
         setData('resume', file);
-        reset('errors');
     };
 
     const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -152,7 +151,7 @@ export default function ResumeChecker({ analysis }: Props) {
                             <span className="text-xl font-semibold text-slate-900">ATS Checker</span>
                         </div>
                         <a
-                            href="https://github.com"
+                            href="https://github.com/joshu2991/ats-tracker"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
