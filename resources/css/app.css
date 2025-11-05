@@ -1,9 +1,104 @@
 @import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+/* Global Styles */
+html {
+    scroll-behavior: smooth;
+}
+
+::selection {
+    background-color: #818CF8;
+    color: white;
+}
+
+body {
+    background-image: 
+        radial-gradient(circle at 1px 1px, rgba(79, 70, 229, 0.03) 1px, transparent 0);
+    background-size: 40px 40px;
+}
+
+/* Custom Animations */
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+    }
+    33% {
+        transform: translateY(-12px) rotate(-1deg);
+    }
+    66% {
+        transform: translateY(-6px) rotate(1deg);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+@keyframes pulse-scale {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+    }
+}
+
+.animate-float {
+    animation: float 6s ease-in-out infinite;
+}
+
+.animate-shimmer {
+    background: linear-gradient(
+        90deg,
+        #4F46E5 0%,
+        #7C3AED 25%,
+        #A855F7 50%,
+        #7C3AED 75%,
+        #4F46E5 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+}
+
+.animate-pulse-scale {
+    animation: pulse-scale 2s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Focus States */
+*:focus-visible {
+    outline: 2px solid #4F46E5;
+    outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible {
+    outline: 2px solid #4F46E5;
+    outline-offset: 2px;
+    border-radius: 0.5rem;
 }

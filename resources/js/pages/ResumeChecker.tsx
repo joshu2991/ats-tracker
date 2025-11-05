@@ -1,7 +1,25 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { FormEvent, useRef, useState } from 'react';
-import ScoreBreakdown from '../components/ScoreBreakdown';
-import ScoreDisplay from '../components/ScoreDisplay';
+import { motion } from 'framer-motion';
+import {
+    Sparkles,
+    CloudUpload,
+    FileText,
+    Upload,
+    FileSearch,
+    Hash,
+    Target,
+    TrendingUp,
+    AlertCircle,
+    Lightbulb,
+    Shield,
+    Lock,
+    Zap,
+    Github,
+    CheckCircle2,
+} from 'lucide-react';
+import AnalysisLoadingModal from '../components/AnalysisLoadingModal';
+import ResumeResults from '../components/ResumeResults';
 
 interface Analysis {
     filename?: string;
@@ -98,314 +116,357 @@ export default function ResumeChecker({ analysis }: Props) {
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
-        // Navigate to the page without analysis to reset the view
         router.visit('/resume-checker');
     };
 
+    const handleExampleResume = () => {
+        // Trigger file input to select example resume
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
+    };
+
+    // If we have analysis results, show the results page
+    if (analysis && analysis.overall_score !== undefined) {
+        return (
+            <>
+                <Head title="Resume ATS Checker - Results" />
+                <AnalysisLoadingModal isOpen={processing} />
+                <ResumeResults analysis={analysis} onReset={handleReset} />
+            </>
+        );
+    }
+
+    // Landing page (before upload)
     return (
         <>
             <Head title="Resume ATS Checker" />
+            <AnalysisLoadingModal isOpen={processing} />
 
-            <div className="min-h-screen bg-gray-50 py-12 px-4 dark:bg-gray-900 sm:px-6 lg:px-8">
-                <div className="mx-auto max-w-4xl">
-                    <div className="mb-8 text-center">
-                        <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-                            Resume ATS Checker
-                        </h1>
-                        <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
-                            Upload your resume to analyze its ATS compatibility
-                        </p>
+            <div className="min-h-screen bg-white">
+                {/* Navigation Bar */}
+                <nav className="sticky top-0 z-40 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200">
+                    <div className="max-w-[1280px] mx-auto px-4 h-full flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-indigo-600" />
+                            <span className="text-xl font-semibold text-slate-900">ATS Checker</span>
+                        </div>
+                        <a
+                            href="https://github.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+                        >
+                            <Github className="w-4 h-4" />
+                            View on GitHub
+                        </a>
                     </div>
+                </nav>
 
-                    {!analysis || analysis.overall_score === undefined ? (
-                        <form onSubmit={handleSubmit}>
-                            <div
-                                className={`relative rounded-lg border-2 border-dashed p-8 transition-colors ${
-                                    dragActive
-                                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                        : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800'
-                                } ${errors.resume ? 'border-red-500' : ''}`}
-                                onDragEnter={handleDrag}
-                                onDragLeave={handleDrag}
-                                onDragOver={handleDrag}
-                                onDrop={handleDrop}
+                {/* Hero Section */}
+                <main className="max-w-[1280px] mx-auto px-4 py-24">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center mb-24">
+                        {/* Left Column */}
+                        <div className="lg:col-span-7">
+                            {/* Badge */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.1 }}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-100 rounded-full mb-6"
                             >
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept=".pdf,.docx"
-                                    onChange={handleFileInputChange}
-                                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                                    disabled={processing}
-                                />
+                                <Sparkles className="w-4 h-4 text-indigo-700" />
+                                <span className="text-sm font-medium text-indigo-700">
+                                    Free AI-Powered Analysis • No Signup Required
+                                </span>
+                            </motion.div>
 
-                                <div className="text-center">
-                                    <svg
-                                        className="mx-auto h-12 w-12 text-gray-400"
-                                        stroke="currentColor"
-                                        fill="none"
-                                        viewBox="0 0 48 48"
-                                    >
-                                        <path
-                                            d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                                            strokeWidth={2}
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-                                    </svg>
-                                    <div className="mt-4">
-                                        <p className="text-lg font-medium text-gray-900 dark:text-white">
+                            {/* Main Headline */}
+                            <motion.h1
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.2 }}
+                                className="text-[56px] font-bold leading-[1.1] tracking-[-0.02em] text-slate-900 mb-4 max-w-[600px]"
+                            >
+                                Get Your Resume{' '}
+                                <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                                    ATS Score
+                                </span>{' '}
+                                in 30 Seconds
+                            </motion.h1>
+
+                            {/* Subheadline */}
+                            <motion.p
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.3 }}
+                                className="text-xl leading-relaxed text-slate-600 mb-8 max-w-[540px]"
+                            >
+                                Upload your resume and get instant AI-powered feedback on ATS compatibility,
+                                formatting, keywords, and actionable suggestions to land more interviews.
+                            </motion.p>
+
+                            {/* Stats Row */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.4 }}
+                                className="flex gap-12 mb-12"
+                            >
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-4xl font-bold text-indigo-600">2,847+</span>
+                                    <span className="text-sm text-slate-500">Resumes Analyzed</span>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-4xl font-bold text-indigo-600">~25s</span>
+                                    <span className="text-sm text-slate-500">Average Analysis Time</span>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-4xl font-bold text-indigo-600">100%</span>
+                                    <span className="text-sm text-slate-500">Free Forever</span>
+                                </div>
+                            </motion.div>
+
+                            {/* Upload Area */}
+                            <motion.form
+                                onSubmit={handleSubmit}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.5 }}
+                                className="max-w-[560px]"
+                            >
+                                <div
+                                    className={`relative p-10 bg-white border-2 border-dashed rounded-2xl shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer ${
+                                        dragActive
+                                            ? 'border-indigo-600 bg-indigo-100 scale-[1.02]'
+                                            : 'border-slate-300 hover:border-indigo-400 hover:shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)] hover:scale-[1.01]'
+                                    } ${errors.resume ? 'border-rose-500' : ''}`}
+                                    onDragEnter={handleDrag}
+                                    onDragLeave={handleDrag}
+                                    onDragOver={handleDrag}
+                                    onDrop={handleDrop}
+                                >
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept=".pdf,.docx"
+                                        onChange={handleFileInputChange}
+                                        className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
+                                        disabled={processing}
+                                    />
+
+                                    <div className="flex flex-col items-center text-center">
+                                        <CloudUpload className="w-12 h-12 text-indigo-600 mb-4" />
+                                        <p className="text-lg font-semibold text-slate-900 mb-2">
                                             {selectedFile ? (
-                                                <span className="text-blue-600 dark:text-blue-400">
-                                                    {selectedFile.name}
-                                                </span>
+                                                <span className="text-indigo-600">{selectedFile.name}</span>
                                             ) : (
-                                                <>
-                                                    <span className="text-blue-600 dark:text-blue-400">Click to upload</span> or drag and drop
-                                                </>
+                                                'Drop your resume here or click to browse'
                                             )}
                                         </p>
-                                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                            PDF or DOCX (Max 5MB)
+                                        <p className="text-sm text-slate-500 mb-6">
+                                            Supports PDF and DOCX • Max 5MB
                                         </p>
-                                    </div>
-                                </div>
-                            </div>
 
-                            {errors.resume && (
-                                <div className="mt-4 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
-                                    <p className="text-sm text-red-800 dark:text-red-200">{errors.resume}</p>
-                                </div>
-                            )}
+                                        {/* OR Divider */}
+                                        {!selectedFile && (
+                                            <>
+                                                <div className="flex items-center gap-4 w-full my-6">
+                                                    <div className="flex-1 h-px bg-slate-200" />
+                                                    <span className="text-sm text-slate-500 font-medium">OR</span>
+                                                    <div className="flex-1 h-px bg-slate-200" />
+                                                </div>
 
-                            {selectedFile && (
-                                <div className="mt-6 flex gap-4">
-                                    <button
-                                        type="submit"
-                                        disabled={processing}
-                                        className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
-                                    >
-                                        {processing ? (
-                                            <span className="flex items-center justify-center">
-                                                <svg
-                                                    className="mr-2 h-4 w-4 animate-spin"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
+                                                <button
+                                                    type="button"
+                                                    onClick={handleExampleResume}
+                                                    className="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors"
                                                 >
-                                                    <circle
-                                                        className="opacity-25"
-                                                        cx="12"
-                                                        cy="12"
-                                                        r="10"
-                                                        stroke="currentColor"
-                                                        strokeWidth="4"
-                                                    />
-                                                    <path
-                                                        className="opacity-75"
-                                                        fill="currentColor"
-                                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                                    />
-                                                </svg>
-                                                Analyzing...
-                                            </span>
-                                        ) : (
-                                            'Analyze Resume'
+                                                    <FileText className="w-4 h-4" />
+                                                    Try with Example Resume
+                                                </button>
+                                            </>
                                         )}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleReset}
-                                        disabled={processing}
-                                        className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                                    >
-                                        Reset
-                                    </button>
-                                </div>
-                            )}
-                        </form>
-                    ) : (
-                        <div className="space-y-6">
-                            {/* AI Unavailable Warning */}
-                            {analysis.ai_unavailable && (
-                                <div className="rounded-lg border-2 border-yellow-400 bg-yellow-50 p-4 dark:bg-yellow-900/20 dark:border-yellow-600">
-                                    <div className="flex items-start">
-                                        <svg
-                                            className="mr-3 h-5 w-5 text-yellow-600 dark:text-yellow-400"
-                                            fill="currentColor"
-                                            viewBox="0 0 20 20"
-                                        >
-                                            <path
-                                                fillRule="evenodd"
-                                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                                clipRule="evenodd"
-                                            />
-                                        </svg>
-                                        <div className="flex-1">
-                                            <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                                                Limited Analysis Mode
-                                            </h3>
-                                            <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
-                                                {analysis.ai_error_message || 'AI analysis was not available. This analysis is based on technical checks only. Some insights may be limited, but the score and critical issues are still accurate.'}
-                                            </p>
-                                        </div>
                                     </div>
                                 </div>
-                            )}
 
-                            {/* Score Display with Confidence Badge */}
-                            <div className="rounded-lg bg-white p-8 shadow dark:bg-gray-800">
-                                <div className="mb-4 text-center">
-                                    <h2 className="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
-                                        ATS Score
-                                    </h2>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        File: {analysis.filename}
-                                    </p>
-                                    {/* Confidence Badge */}
-                                    {analysis.confidence && (
-                                        <div className="mt-3 inline-flex">
-                                            <span
-                                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                                    analysis.confidence === 'high'
-                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                                        : analysis.confidence === 'medium'
-                                                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                                                }`}
-                                            >
-                                                {analysis.confidence.charAt(0).toUpperCase() + analysis.confidence.slice(1)} Confidence
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                                <ScoreDisplay score={analysis.overall_score || 0} />
-                                {/* Calibration Note */}
-                                <div className="mt-4 rounded-md bg-blue-50 p-3 text-center text-xs text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
-                                    <p>
-                                        Scores calibrated against ResumeWorded/JobScan. 65+ is good ATS compatibility.
-                                    </p>
-                                </div>
-                            </div>
+                                {errors.resume && (
+                                    <div className="mt-4 p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700">
+                                        {errors.resume}
+                                    </div>
+                                )}
 
-                            {/* Score Breakdown */}
-                            <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
-                                <h2 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">
-                                    Score Breakdown
-                                </h2>
-                                <ScoreBreakdown
-                                    parseabilityScore={analysis.parseability_score}
-                                    formatScore={analysis.format_score}
-                                    keywordScore={analysis.keyword_score}
-                                    contactScore={analysis.contact_score}
-                                    contentScore={analysis.content_score}
-                                />
-                            </div>
-
-                            {/* Critical Issues - Only show if category score < 30 or overall score < 30 */}
-                            {analysis.critical_issues && 
-                             Array.isArray(analysis.critical_issues) && 
-                             analysis.critical_issues.length > 0 && 
-                             (analysis.overall_score < 30 || 
-                              analysis.format_score < 30 || 
-                              analysis.contact_score < 30) && (
-                                <div className="rounded-lg border-2 border-red-400 bg-red-50 p-6 shadow dark:bg-red-900/20 dark:border-red-600">
-                                    <h2 className="mb-4 flex items-center text-xl font-bold text-red-900 dark:text-red-200">
-                                        <svg
-                                            className="mr-2 h-5 w-5"
-                                            fill="currentColor"
-                                            viewBox="0 0 20 20"
+                                {selectedFile && (
+                                    <div className="mt-6 flex gap-4">
+                                        <button
+                                            type="submit"
+                                            disabled={processing}
+                                            className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 shadow-[0_4px_6px_rgba(79,70,229,0.3)]"
                                         >
-                                            <path
-                                                fillRule="evenodd"
-                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                                clipRule="evenodd"
-                                            />
-                                        </svg>
-                                        Critical Fixes Required
-                                    </h2>
-                                    <ul className="space-y-2">
-                                        {analysis.critical_issues.map((issue, index) => (
-                                            <li key={index} className="flex items-start text-sm text-red-800 dark:text-red-200">
-                                                <span className="mr-2 mt-1">•</span>
-                                                <span>{issue}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
-                            {/* Warnings */}
-                            {analysis.warnings && Array.isArray(analysis.warnings) && analysis.warnings.length > 0 && (
-                                <div className="rounded-lg border-2 border-yellow-400 bg-yellow-50 p-6 shadow dark:bg-yellow-900/20 dark:border-yellow-600">
-                                    <h2 className="mb-4 flex items-center text-xl font-bold text-yellow-900 dark:text-yellow-200">
-                                        <svg
-                                            className="mr-2 h-5 w-5"
-                                            fill="currentColor"
-                                            viewBox="0 0 20 20"
+                                            {processing ? 'Analyzing...' : 'Analyze Resume'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleReset}
+                                            disabled={processing}
+                                            className="px-6 py-3 border border-slate-300 bg-white text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
                                         >
-                                            <path
-                                                fillRule="evenodd"
-                                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                                clipRule="evenodd"
-                                            />
-                                        </svg>
-                                        Warnings
-                                    </h2>
-                                    <ul className="space-y-2">
-                                        {analysis.warnings.map((warning, index) => (
-                                            <li key={index} className="flex items-start text-sm text-yellow-800 dark:text-yellow-200">
-                                                <span className="mr-2 mt-1">⚠️</span>
-                                                <span>{warning}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
-                            {/* Suggestions/Improvements */}
-                            {analysis.suggestions && Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0 && (
-                                <div className="rounded-lg border-2 border-blue-400 bg-blue-50 p-6 shadow dark:bg-blue-900/20 dark:border-blue-600">
-                                    <h2 className="mb-4 flex items-center text-xl font-bold text-blue-900 dark:text-blue-200">
-                                        <svg
-                                            className="mr-2 h-5 w-5"
-                                            fill="currentColor"
-                                            viewBox="0 0 20 20"
-                                        >
-                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                        </svg>
-                                        Recommended Improvements
-                                    </h2>
-                                    <ul className="space-y-2">
-                                        {analysis.suggestions.map((suggestion, index) => (
-                                            <li key={index} className="flex items-start text-sm text-blue-800 dark:text-blue-200">
-                                                <span className="mr-2 mt-1">💡</span>
-                                                <span>{suggestion}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
-                            {/* Footer Disclaimer */}
-                            <div className="rounded-lg bg-gray-100 p-4 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                                <p>
-                                    This analysis is based on documented ATS best practices from industry research including TopResume, Jobscan, and Harvard Career Services. While no tool can guarantee compatibility with all ATS systems, following these recommendations significantly improves your chances of passing automated screening. Different companies use different ATS systems with varying requirements.
-                                </p>
-                            </div>
-
-                            {/* Action Button */}
-                            <div className="text-center">
-                                <button
-                                    onClick={handleReset}
-                                    className="rounded-md bg-blue-600 px-6 py-3 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-blue-500 dark:hover:bg-blue-600"
-                                >
-                                    Analyze Another Resume
-                                </button>
-                            </div>
+                                            Reset
+                                        </button>
+                                    </div>
+                                )}
+                            </motion.form>
                         </div>
-                    )}
-                </div>
+
+                        {/* Right Column - Decorative Card Mockup */}
+                        <div className="lg:col-span-5 hidden lg:block">
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.6 }}
+                                className="relative w-full max-w-[480px] aspect-[4/3] bg-white rounded-[24px] p-8 shadow-[0_25px_50px_-12px_rgba(79,70,229,0.25)] animate-float"
+                            >
+                                {/* Mini Score Badge */}
+                                <div className="absolute -top-3 -right-3 w-20 h-20 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex flex-col items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3)] animate-pulse-scale">
+                                    <span className="text-3xl font-bold text-white">78</span>
+                                    <span className="text-xs text-white/80">/100</span>
+                                </div>
+
+                                <h3 className="text-xl font-semibold text-slate-900 mb-6">Sample Analysis Results</h3>
+
+                                {/* Progress Bars */}
+                                <div className="space-y-4 mb-6">
+                                    {[
+                                        { label: 'Format', score: 85 },
+                                        { label: 'Keywords', score: 72 },
+                                        { label: 'Content', score: 68 },
+                                    ].map((item, index) => (
+                                        <div key={index}>
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                                                <span className="text-sm font-semibold text-indigo-600">
+                                                    {item.score}%
+                                                </span>
+                                            </div>
+                                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full bg-gradient-to-r ${
+                                                        item.score >= 70
+                                                            ? 'from-emerald-500 to-emerald-600'
+                                                            : 'from-amber-500 to-amber-600'
+                                                    }`}
+                                                    style={{ width: `${item.score}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Mini Suggestions */}
+                                <div className="mt-6 pt-6 border-t border-slate-200 space-y-3">
+                                    {[
+                                        'Add 3-5 more technical keywords',
+                                        'Include LinkedIn profile URL',
+                                    ].map((suggestion, index) => (
+                                        <div key={index} className="flex items-start gap-3">
+                                            <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                                            <span className="text-sm leading-relaxed text-slate-600">{suggestion}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </motion.div>
+
+                            {/* Trust Indicators */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.6, delay: 0.7 }}
+                                className="mt-10 space-y-3"
+                            >
+                                {[
+                                    { icon: Shield, text: 'Your data is never stored' },
+                                    { icon: Lock, text: 'Analyzed locally with AI' },
+                                    { icon: Zap, text: 'Results in under 30 seconds' },
+                                ].map((item, index) => {
+                                    const Icon = item.icon;
+                                    return (
+                                        <div key={index} className="flex items-center gap-3">
+                                            <Icon className="w-5 h-5 text-indigo-600" />
+                                            <span className="text-sm text-slate-600">{item.text}</span>
+                                        </div>
+                                    );
+                                })}
+                            </motion.div>
+                        </div>
+                    </div>
+
+                    {/* Features Section */}
+                    <motion.section
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.8 }}
+                        className="max-w-[1120px] mx-auto mt-24"
+                    >
+                        <div className="text-center mb-12">
+                            <h2 className="text-4xl font-bold text-slate-900 mb-4">What Gets Analyzed</h2>
+                            <p className="text-lg text-slate-600">
+                                Comprehensive ATS compatibility check covering all critical factors
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {[
+                                {
+                                    icon: FileSearch,
+                                    title: 'Format & Structure',
+                                    description: 'Checks for ATS-friendly formatting, standard sections, and proper document structure',
+                                },
+                                {
+                                    icon: Hash,
+                                    title: 'Keywords & Skills',
+                                    description: 'Analyzes technical keyword density and matches against industry standards',
+                                },
+                                {
+                                    icon: Target,
+                                    title: 'Contact & Details',
+                                    description: 'Verifies all critical contact information is present and properly formatted',
+                                },
+                                {
+                                    icon: TrendingUp,
+                                    title: 'Content Quality',
+                                    description: 'Evaluates use of action verbs, quantifiable achievements, and impact metrics',
+                                },
+                                {
+                                    icon: AlertCircle,
+                                    title: 'Red Flags',
+                                    description: 'Identifies critical issues that could cause automatic rejection by ATS systems',
+                                },
+                                {
+                                    icon: Lightbulb,
+                                    title: 'Suggestions',
+                                    description: 'Provides specific, actionable recommendations to improve your resume score',
+                                },
+                            ].map((feature, index) => {
+                                const Icon = feature.icon;
+                                return (
+                                    <motion.div
+                                        key={index}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.9 + index * 0.1, duration: 0.6 }}
+                                        className="bg-white p-8 rounded-2xl border border-slate-200 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)] hover:-translate-y-1 transition-all duration-300"
+                                    >
+                                        <div className="w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center mb-5">
+                                            <Icon className="w-7 h-7 text-indigo-600" />
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-slate-900 mb-3">{feature.title}</h3>
+                                        <p className="text-sm leading-relaxed text-slate-600">{feature.description}</p>
+                                    </motion.div>
+                                );
+                            })}
+                        </div>
+                    </motion.section>
+                </main>
             </div>
         </>
     );

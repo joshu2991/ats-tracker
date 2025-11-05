@@ -1,4 +1,7 @@
+import { motion } from 'framer-motion';
+import { FileSearch, Layout, Hash, Mail, Target } from 'lucide-react';
 import ProgressBar from './ProgressBar';
+import { useCountUp } from '../hooks/useCountUp';
 
 interface ScoreBreakdownProps {
     parseabilityScore?: number;
@@ -8,6 +11,14 @@ interface ScoreBreakdownProps {
     contentScore?: number;
 }
 
+interface CategoryData {
+    key: string;
+    label: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    score?: number;
+}
+
 export default function ScoreBreakdown({
     parseabilityScore,
     formatScore,
@@ -15,197 +26,98 @@ export default function ScoreBreakdown({
     contactScore,
     contentScore,
 }: ScoreBreakdownProps) {
-    const getScoreColor = (score: number, max: number): 'green' | 'yellow' | 'red' => {
-        const safeScore = Math.max(0, score || 0);
-        const safeMax = Math.max(1, max);
-        const percentage = (safeScore / safeMax) * 100;
-        if (percentage >= 80) {
-            return 'green';
+    const categories: CategoryData[] = [
+        {
+            key: 'parseability',
+            label: 'Parseability (Can ATS read it?)',
+            description: 'PDF text extraction and document readability',
+            icon: FileSearch,
+            score: parseabilityScore,
+        },
+        {
+            key: 'format',
+            label: 'Format (Standard structure?)',
+            description: 'Section headers, document structure, and formatting',
+            icon: Layout,
+            score: formatScore,
+        },
+        {
+            key: 'keyword',
+            label: 'Keywords (Relevant skills?)',
+            description: 'Technical skills and industry keyword density',
+            icon: Hash,
+            score: keywordScore,
+        },
+        {
+            key: 'contact',
+            label: 'Contact Info (Easy to find?)',
+            description: 'Email, phone, LinkedIn, and location visibility',
+            icon: Mail,
+            score: contactScore,
+        },
+        {
+            key: 'content',
+            label: 'Content Quality (Achievements, verbs?)',
+            description: 'Action verbs, metrics, and impact statements',
+            icon: Target,
+            score: contentScore,
+        },
+    ].filter((cat) => cat.score !== undefined);
+
+    const getScoreColor = (score: number): string => {
+        if (score >= 70) {
+            return 'text-emerald-500';
         }
-        if (percentage >= 60) {
-            return 'yellow';
+        if (score >= 50) {
+            return 'text-amber-500';
         }
-        return 'red';
+        return 'text-rose-500';
     };
 
-    const getScoreLabel = (category: string): string => {
-        const labels: Record<string, string> = {
-            parseability: 'Parseability (Can ATS read it?)',
-            format: 'Format (Standard structure?)',
-            keyword: 'Keywords (Relevant skills?)',
-            contact: 'Contact Info (Easy to find?)',
-            content: 'Content Quality (Achievements, verbs?)',
-        };
-        return labels[category] || category;
-    };
-
-    const getScoreDescription = (category: string): string => {
-        const descriptions: Record<string, string> = {
-            parseability: 'Measures if the resume can be properly parsed by ATS systems. Low scores indicate scanned images, tables, or layout issues.',
-            format: 'Evaluates if the resume follows standard ATS-friendly structure with proper section headers and formatting.',
-            keyword: 'Assesses the presence and relevance of technical keywords that match job requirements.',
-            contact: 'Checks if contact information is easily accessible and properly formatted for ATS systems.',
-            content: 'Reviews the quality of content including action verbs, quantifiable achievements, and appropriate length.',
-        };
-        return descriptions[category] || '';
+    const getIconColor = (score: number): string => {
+        if (score >= 70) {
+            return 'text-emerald-500';
+        }
+        if (score >= 50) {
+            return 'text-amber-500';
+        }
+        return 'text-rose-500';
     };
 
     return (
-        <div className="space-y-6">
-            {parseabilityScore !== undefined && (
-                <div>
-                    <div className="mb-2 flex items-center gap-2">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {getScoreLabel('parseability')}
-                        </h3>
-                        <div className="group relative">
-                            <svg
-                                className="h-4 w-4 cursor-help text-gray-400 dark:text-gray-500"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    fillRule="evenodd"
-                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
-                                    clipRule="evenodd"
-                                />
-                            </svg>
-                            <div className="absolute bottom-full left-1/2 mb-2 hidden w-64 -translate-x-1/2 rounded-lg bg-gray-900 p-2 text-xs text-white shadow-lg group-hover:block dark:bg-gray-700">
-                                {getScoreDescription('parseability')}
-                            </div>
-                        </div>
-                    </div>
-                    <ProgressBar
-                        value={parseabilityScore}
-                        max={100}
-                        color={getScoreColor(parseabilityScore, 100)}
-                    />
-                </div>
-            )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {categories.map((category, index) => {
+                const Icon = category.icon;
+                const score = category.score || 0;
+                const displayScore = useCountUp(score, 2000);
 
-            {formatScore !== undefined && (
-                <div>
-                    <div className="mb-2 flex items-center gap-2">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {getScoreLabel('format')}
-                        </h3>
-                        <div className="group relative">
-                            <svg
-                                className="h-4 w-4 cursor-help text-gray-400 dark:text-gray-500"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    fillRule="evenodd"
-                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
-                                    clipRule="evenodd"
-                                />
-                            </svg>
-                            <div className="absolute bottom-full left-1/2 mb-2 hidden w-64 -translate-x-1/2 rounded-lg bg-gray-900 p-2 text-xs text-white shadow-lg group-hover:block dark:bg-gray-700">
-                                {getScoreDescription('format')}
+                return (
+                    <motion.div
+                        key={category.key}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 + index * 0.1, duration: 0.6 }}
+                        className="bg-white p-6 rounded-2xl border border-slate-200 hover:shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)] hover:-translate-y-0.5 transition-all duration-300"
+                    >
+                        {/* Header Row */}
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center gap-3">
+                                <Icon className={`w-6 h-6 ${getIconColor(score)}`} />
+                                <h3 className="text-base font-semibold text-slate-900">{category.label}</h3>
+                            </div>
+                            <div className={`text-xl font-bold ${getScoreColor(score)}`}>
+                                {displayScore}/100
                             </div>
                         </div>
-                    </div>
-                    <ProgressBar
-                        value={formatScore}
-                        max={100}
-                        color={getScoreColor(formatScore, 100)}
-                    />
-                </div>
-            )}
 
-            {keywordScore !== undefined && (
-                <div>
-                    <div className="mb-2 flex items-center gap-2">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {getScoreLabel('keyword')}
-                        </h3>
-                        <div className="group relative">
-                            <svg
-                                className="h-4 w-4 cursor-help text-gray-400 dark:text-gray-500"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    fillRule="evenodd"
-                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
-                                    clipRule="evenodd"
-                                />
-                            </svg>
-                            <div className="absolute bottom-full left-1/2 mb-2 hidden w-64 -translate-x-1/2 rounded-lg bg-gray-900 p-2 text-xs text-white shadow-lg group-hover:block dark:bg-gray-700">
-                                {getScoreDescription('keyword')}
-                            </div>
-                        </div>
-                    </div>
-                    <ProgressBar
-                        value={keywordScore}
-                        max={100}
-                        color={getScoreColor(keywordScore, 100)}
-                    />
-                </div>
-            )}
+                        {/* Progress Bar */}
+                        <ProgressBar value={score} max={100} delay={500 + index * 100} />
 
-            {contactScore !== undefined && (
-                <div>
-                    <div className="mb-2 flex items-center gap-2">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {getScoreLabel('contact')}
-                        </h3>
-                        <div className="group relative">
-                            <svg
-                                className="h-4 w-4 cursor-help text-gray-400 dark:text-gray-500"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    fillRule="evenodd"
-                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
-                                    clipRule="evenodd"
-                                />
-                            </svg>
-                            <div className="absolute bottom-full left-1/2 mb-2 hidden w-64 -translate-x-1/2 rounded-lg bg-gray-900 p-2 text-xs text-white shadow-lg group-hover:block dark:bg-gray-700">
-                                {getScoreDescription('contact')}
-                            </div>
-                        </div>
-                    </div>
-                    <ProgressBar
-                        value={contactScore}
-                        max={100}
-                        color={getScoreColor(contactScore, 100)}
-                    />
-                </div>
-            )}
-
-            {contentScore !== undefined && (
-                <div>
-                    <div className="mb-2 flex items-center gap-2">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {getScoreLabel('content')}
-                        </h3>
-                        <div className="group relative">
-                            <svg
-                                className="h-4 w-4 cursor-help text-gray-400 dark:text-gray-500"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    fillRule="evenodd"
-                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
-                                    clipRule="evenodd"
-                                />
-                            </svg>
-                            <div className="absolute bottom-full left-1/2 mb-2 hidden w-64 -translate-x-1/2 rounded-lg bg-gray-900 p-2 text-xs text-white shadow-lg group-hover:block dark:bg-gray-700">
-                                {getScoreDescription('content')}
-                            </div>
-                        </div>
-                    </div>
-                    <ProgressBar
-                        value={contentScore}
-                        max={100}
-                        color={getScoreColor(contentScore, 100)}
-                    />
-                </div>
-            )}
+                        {/* Description */}
+                        <p className="mt-3 text-sm text-slate-600 leading-relaxed">{category.description}</p>
+                    </motion.div>
+                );
+            })}
         </div>
     );
 }
