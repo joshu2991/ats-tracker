@@ -10,7 +10,7 @@ class AIResumeAnalyzer
 {
     protected Client $client;
 
-    protected string $apiKey;
+    protected ?string $apiKey;
 
     protected int $timeout;
 
@@ -22,7 +22,7 @@ class AIResumeAnalyzer
         $this->client = new Client([
             'base_uri' => 'https://api.openai.com/v1/',
             'headers' => [
-                'Authorization' => 'Bearer '.$this->apiKey,
+                'Authorization' => 'Bearer '.($this->apiKey ?? ''),
                 'Content-Type' => 'application/json',
             ],
             'timeout' => $this->timeout,
