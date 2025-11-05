@@ -7,11 +7,11 @@ interface AnalysisLoadingModalProps {
 }
 
 const steps = [
-    { id: 1, label: 'Extracting text from PDF', duration: 2000 },
-    { id: 2, label: 'Analyzing format and structure', duration: 3000 },
-    { id: 3, label: 'Checking keyword density', duration: 3000 },
-    { id: 4, label: 'Running AI analysis', duration: 7000 },
-    { id: 5, label: 'Generating personalized suggestions', duration: 3000 },
+    { id: 1, label: 'Extracting text from PDF', duration: 3500, minDisplayTime: 2000 },
+    { id: 2, label: 'Analyzing format and structure', duration: 4000, minDisplayTime: 2500 },
+    { id: 3, label: 'Checking keyword density', duration: 3500, minDisplayTime: 2000 },
+    { id: 4, label: 'Running AI analysis', duration: 8000, minDisplayTime: 4000 },
+    { id: 5, label: 'Generating personalized suggestions', duration: 3500, minDisplayTime: 2000 },
 ];
 
 const funFacts = [
@@ -25,24 +25,58 @@ export default function AnalysisLoadingModal({ isOpen }: AnalysisLoadingModalPro
     const [currentStep, setCurrentStep] = useState(0);
     const [progress, setProgress] = useState(0);
     const [currentTip, setCurrentTip] = useState(0);
+    const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
     useEffect(() => {
         if (!isOpen) {
             setCurrentStep(0);
             setProgress(0);
+            setCompletedSteps(new Set());
             return;
         }
 
         let accumulatedTime = 0;
         const totalDuration = steps.reduce((sum, step) => sum + step.duration, 0);
+        const stepTransitionDelay = 1000; // Delay between steps for smoother transition
+        const progressUpdateInterval = 50; // Update progress every 50ms for smooth animation
+
+        // Update progress smoothly
+        const progressInterval = setInterval(() => {
+            setProgress((prev) => {
+                if (prev < 100) {
+                    return Math.min(prev + 0.3, 100);
+                }
+                return prev;
+            });
+        }, progressUpdateInterval);
 
         steps.forEach((step, index) => {
+            // Start the step (show as active)
             setTimeout(() => {
                 setCurrentStep(index + 1);
-                accumulatedTime += step.duration;
-                setProgress((accumulatedTime / totalDuration) * 100);
             }, accumulatedTime);
+
+            // Complete the step (show checkmark) after duration
+            setTimeout(() => {
+                setCompletedSteps((prev) => new Set([...prev, index]));
+                
+                // Small delay before moving to next step for better UX
+                setTimeout(() => {
+                    if (index < steps.length - 1) {
+                        setCurrentStep(index + 2);
+                    }
+                }, stepTransitionDelay);
+            }, accumulatedTime + step.duration);
+
+            accumulatedTime += step.duration + stepTransitionDelay;
         });
+
+        // Clear progress interval when all steps complete
+        const totalTime = accumulatedTime;
+        setTimeout(() => {
+            clearInterval(progressInterval);
+            setProgress(100);
+        }, totalTime);
 
         // Rotate tips every 5 seconds
         const tipInterval = setInterval(() => {
@@ -51,11 +85,12 @@ export default function AnalysisLoadingModal({ isOpen }: AnalysisLoadingModalPro
 
         return () => {
             clearInterval(tipInterval);
+            clearInterval(progressInterval);
         };
     }, [isOpen]);
 
     const getStepState = (stepIndex: number): 'pending' | 'active' | 'complete' => {
-        if (stepIndex < currentStep) {
+        if (completedSteps.has(stepIndex)) {
             return 'complete';
         }
         if (stepIndex === currentStep - 1) {
@@ -107,35 +142,84 @@ export default function AnalysisLoadingModal({ isOpen }: AnalysisLoadingModalPro
                         <div className="flex flex-col gap-4 mb-8">
                             {steps.map((step, index) => {
                                 const state = getStepState(index);
+                                const isVisible = state !== 'pending' || index < currentStep + 1;
+                                
                                 return (
-                                    <motion.div
-                                        key={step.id}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: index * 0.1 }}
-                                        className="flex items-center gap-4 transition-all duration-300"
-                                    >
-                                        {state === 'pending' && (
-                                            <Circle className="w-6 h-6 text-slate-300" />
+                                    <AnimatePresence key={step.id}>
+                                        {isVisible && (
+                                            <motion.div
+                                                initial={{ opacity: 0, x: -20 }}
+                                                animate={{ 
+                                                    opacity: 1, 
+                                                    x: 0,
+                                                    scale: state === 'active' ? 1.02 : 1,
+                                                }}
+                                                exit={state === 'complete' ? { 
+                                                    opacity: 0.5,
+                                                    x: 10,
+                                                    transition: { duration: 0.6, delay: 0.3 }
+                                                } : {}}
+                                                transition={{ 
+                                                    duration: 0.5,
+                                                    ease: 'easeOut',
+                                                    scale: { duration: 0.3 }
+                                                }}
+                                                className={`flex items-center gap-4 transition-all duration-500 ${
+                                                    state === 'active' ? 'transform' : ''
+                                                }`}
+                                            >
+                                                {/* Icon with smooth transitions */}
+                                                <motion.div
+                                                    key={`icon-${state}-${index}`}
+                                                    initial={{ scale: 0.8, opacity: 0 }}
+                                                    animate={{ scale: 1, opacity: 1 }}
+                                                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                                                    className="flex-shrink-0"
+                                                >
+                                                    {state === 'pending' && (
+                                                        <Circle className="w-6 h-6 text-slate-300" />
+                                                    )}
+                                                    {state === 'active' && (
+                                                        <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+                                                    )}
+                                                    {state === 'complete' && (
+                                                        <motion.div
+                                                            initial={{ scale: 0, rotate: -180 }}
+                                                            animate={{ scale: 1, rotate: 0 }}
+                                                            transition={{ 
+                                                                type: 'spring',
+                                                                stiffness: 200,
+                                                                damping: 15,
+                                                                duration: 0.6
+                                                            }}
+                                                        >
+                                                            <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                                                        </motion.div>
+                                                    )}
+                                                </motion.div>
+                                                
+                                                {/* Text with smooth state changes */}
+                                                <motion.span
+                                                    key={`text-${state}-${index}`}
+                                                    animate={{
+                                                        color: state === 'pending' 
+                                                            ? '#94a3b8' 
+                                                            : state === 'active' 
+                                                            ? '#0f172a' 
+                                                            : '#64748b',
+                                                        textDecoration: state === 'complete' ? 'line-through' : 'none',
+                                                        opacity: state === 'complete' ? 0.7 : 1,
+                                                    }}
+                                                    transition={{ duration: 0.5, ease: 'easeInOut' }}
+                                                    className={`text-sm ${
+                                                        state === 'active' ? 'font-semibold' : 'font-normal'
+                                                    }`}
+                                                >
+                                                    {step.label}
+                                                </motion.span>
+                                            </motion.div>
                                         )}
-                                        {state === 'active' && (
-                                            <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
-                                        )}
-                                        {state === 'complete' && (
-                                            <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                                        )}
-                                        <span
-                                            className={`text-sm ${
-                                                state === 'pending'
-                                                    ? 'text-slate-400'
-                                                    : state === 'active'
-                                                    ? 'text-slate-900 font-medium'
-                                                    : 'text-slate-600 line-through'
-                                            }`}
-                                        >
-                                            {step.label}
-                                        </span>
-                                    </motion.div>
+                                    </AnimatePresence>
                                 );
                             })}
                         </div>
@@ -143,10 +227,10 @@ export default function AnalysisLoadingModal({ isOpen }: AnalysisLoadingModalPro
                         {/* Progress Bar */}
                         <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
                             <motion.div
-                                className="h-full rounded-full animate-shimmer"
+                                className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 animate-shimmer"
                                 initial={{ width: 0 }}
-                                animate={{ width: `${progress}%` }}
-                                transition={{ duration: 0.5, ease: 'easeOut' }}
+                                animate={{ width: `${Math.min(progress, 100)}%` }}
+                                transition={{ duration: 0.8, ease: 'easeOut' }}
                             />
                         </div>
 

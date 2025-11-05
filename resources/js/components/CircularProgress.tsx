@@ -4,9 +4,10 @@ interface CircularProgressProps {
     score: number;
     size?: number;
     strokeWidth?: number;
+    className?: string;
 }
 
-export default function CircularProgress({ score, size = 200, strokeWidth = 12 }: CircularProgressProps) {
+export default function CircularProgress({ score, size = 200, strokeWidth = 12, className = '' }: CircularProgressProps) {
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
     const progress = useCountUp(score, 2000);
@@ -23,7 +24,7 @@ export default function CircularProgress({ score, size = 200, strokeWidth = 12 }
     };
 
     return (
-        <svg width={size} height={size} className="transform -rotate-90">
+        <svg width={size} height={size} className={`transform -rotate-90 ${className}`}>
             <defs>
                 <linearGradient id="gradient-green" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#10B981" />

@@ -19,7 +19,7 @@ import {
     CheckCircle2,
 } from 'lucide-react';
 import AnalysisLoadingModal from '../components/AnalysisLoadingModal';
-import ResumeResults from '../components/ResumeResults';
+import ResumeResultsDashboard from '../components/ResumeResultsDashboard';
 
 interface Analysis {
     filename?: string;
@@ -132,7 +132,7 @@ export default function ResumeChecker({ analysis }: Props) {
             <>
                 <Head title="Resume ATS Checker - Results" />
                 <AnalysisLoadingModal isOpen={processing} />
-                <ResumeResults analysis={analysis} onReset={handleReset} />
+                <ResumeResultsDashboard analysis={analysis} onReset={handleReset} />
             </>
         );
     }
@@ -211,19 +211,19 @@ export default function ResumeChecker({ analysis }: Props) {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.6, delay: 0.4 }}
-                                className="flex gap-12 mb-12"
+                                className="flex gap-6 sm:gap-8 md:gap-12 mb-12"
                             >
                                 <div className="flex flex-col gap-1">
-                                    <span className="text-4xl font-bold text-indigo-600">2,847+</span>
-                                    <span className="text-sm text-slate-500">Resumes Analyzed</span>
+                                    <span className="text-2xl sm:text-3xl md:text-4xl font-bold text-indigo-600">2,847+</span>
+                                    <span className="text-xs sm:text-sm text-slate-500">Resumes Analyzed</span>
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <span className="text-4xl font-bold text-indigo-600">~25s</span>
-                                    <span className="text-sm text-slate-500">Average Analysis Time</span>
+                                    <span className="text-2xl sm:text-3xl md:text-4xl font-bold text-indigo-600">~25s</span>
+                                    <span className="text-xs sm:text-sm text-slate-500">Average Analysis Time</span>
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <span className="text-4xl font-bold text-indigo-600">100%</span>
-                                    <span className="text-sm text-slate-500">Free Forever</span>
+                                    <span className="text-2xl sm:text-3xl md:text-4xl font-bold text-indigo-600">100%</span>
+                                    <span className="text-xs sm:text-sm text-slate-500">Free Forever</span>
                                 </div>
                             </motion.div>
 
@@ -237,23 +237,23 @@ export default function ResumeChecker({ analysis }: Props) {
                             >
                                 <div
                                     className={`relative p-10 bg-white border-2 border-dashed rounded-2xl shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-1px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer ${
-                                        dragActive
+                                    dragActive
                                             ? 'border-indigo-600 bg-indigo-100 scale-[1.02]'
                                             : 'border-slate-300 hover:border-indigo-400 hover:shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)] hover:scale-[1.01]'
                                     } ${errors.resume ? 'border-rose-500' : ''}`}
-                                    onDragEnter={handleDrag}
-                                    onDragLeave={handleDrag}
-                                    onDragOver={handleDrag}
-                                    onDrop={handleDrop}
-                                >
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept=".pdf,.docx"
-                                        onChange={handleFileInputChange}
+                                onDragEnter={handleDrag}
+                                onDragLeave={handleDrag}
+                                onDragOver={handleDrag}
+                                onDrop={handleDrop}
+                            >
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".pdf,.docx"
+                                    onChange={handleFileInputChange}
                                         className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
-                                        disabled={processing}
-                                    />
+                                    disabled={processing}
+                                />
 
                                     <div className="flex flex-col items-center text-center">
                                         <CloudUpload className="w-12 h-12 text-indigo-600 mb-4" />
@@ -267,54 +267,34 @@ export default function ResumeChecker({ analysis }: Props) {
                                         <p className="text-sm text-slate-500 mb-6">
                                             Supports PDF and DOCX • Max 5MB
                                         </p>
-
-                                        {/* OR Divider */}
-                                        {!selectedFile && (
-                                            <>
-                                                <div className="flex items-center gap-4 w-full my-6">
-                                                    <div className="flex-1 h-px bg-slate-200" />
-                                                    <span className="text-sm text-slate-500 font-medium">OR</span>
-                                                    <div className="flex-1 h-px bg-slate-200" />
-                                                </div>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={handleExampleResume}
-                                                    className="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors"
-                                                >
-                                                    <FileText className="w-4 h-4" />
-                                                    Try with Example Resume
-                                                </button>
-                                            </>
-                                        )}
-                                    </div>
                                 </div>
+                            </div>
 
-                                {errors.resume && (
+                            {errors.resume && (
                                     <div className="mt-4 p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700">
                                         {errors.resume}
-                                    </div>
-                                )}
+                                </div>
+                            )}
 
-                                {selectedFile && (
-                                    <div className="mt-6 flex gap-4">
-                                        <button
-                                            type="submit"
-                                            disabled={processing}
+                            {selectedFile && (
+                                <div className="mt-6 flex gap-4">
+                                    <button
+                                        type="submit"
+                                        disabled={processing}
                                             className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 shadow-[0_4px_6px_rgba(79,70,229,0.3)]"
                                         >
                                             {processing ? 'Analyzing...' : 'Analyze Resume'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleReset}
-                                            disabled={processing}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleReset}
+                                        disabled={processing}
                                             className="px-6 py-3 border border-slate-300 bg-white text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
-                                        >
-                                            Reset
-                                        </button>
-                                    </div>
-                                )}
+                                    >
+                                        Reset
+                                    </button>
+                                </div>
+                            )}
                             </motion.form>
                         </div>
 
@@ -397,8 +377,8 @@ export default function ResumeChecker({ analysis }: Props) {
                                     );
                                 })}
                             </motion.div>
-                        </div>
-                    </div>
+                                </div>
+                            </div>
 
                     {/* Features Section */}
                     <motion.section
@@ -411,8 +391,8 @@ export default function ResumeChecker({ analysis }: Props) {
                             <h2 className="text-4xl font-bold text-slate-900 mb-4">What Gets Analyzed</h2>
                             <p className="text-lg text-slate-600">
                                 Comprehensive ATS compatibility check covering all critical factors
-                            </p>
-                        </div>
+                                </p>
+                            </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {[
@@ -458,7 +438,7 @@ export default function ResumeChecker({ analysis }: Props) {
                                     >
                                         <div className="w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center mb-5">
                                             <Icon className="w-7 h-7 text-indigo-600" />
-                                        </div>
+                            </div>
                                         <h3 className="text-lg font-semibold text-slate-900 mb-3">{feature.title}</h3>
                                         <p className="text-sm leading-relaxed text-slate-600">{feature.description}</p>
                                     </motion.div>
