@@ -16,7 +16,8 @@
         "laravel/tinker": "^2.10.1",
         "laravel/wayfinder": "^0.1.11",
         "phpoffice/phpword": "*",
-        "smalot/pdfparser": "*"
+        "smalot/pdfparser": "*",
+        "spatie/pdf-to-text": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

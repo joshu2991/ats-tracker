@@ -243,10 +243,10 @@ export default function ResumeChecker({ analysis }: Props) {
                                         </svg>
                                         <div className="flex-1">
                                             <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                                                AI Analysis Unavailable
+                                                Limited Analysis Mode
                                             </h3>
                                             <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
-                                                {analysis.ai_error_message || 'This analysis is based on technical checks only. Some insights may be limited.'}
+                                                {analysis.ai_error_message || 'AI analysis was not available. This analysis is based on technical checks only. Some insights may be limited, but the score and critical issues are still accurate.'}
                                             </p>
                                         </div>
                                     </div>
@@ -280,6 +280,12 @@ export default function ResumeChecker({ analysis }: Props) {
                                     )}
                                 </div>
                                 <ScoreDisplay score={analysis.overall_score || 0} />
+                                {/* Calibration Note */}
+                                <div className="mt-4 rounded-md bg-blue-50 p-3 text-center text-xs text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
+                                    <p>
+                                        Scores calibrated against ResumeWorded/JobScan. 65+ is good ATS compatibility.
+                                    </p>
+                                </div>
                             </div>
 
                             {/* Score Breakdown */}
@@ -296,8 +302,13 @@ export default function ResumeChecker({ analysis }: Props) {
                                 />
                             </div>
 
-                            {/* Critical Issues */}
-                            {analysis.critical_issues && Array.isArray(analysis.critical_issues) && analysis.critical_issues.length > 0 && (
+                            {/* Critical Issues - Only show if category score < 30 or overall score < 30 */}
+                            {analysis.critical_issues && 
+                             Array.isArray(analysis.critical_issues) && 
+                             analysis.critical_issues.length > 0 && 
+                             (analysis.overall_score < 30 || 
+                              analysis.format_score < 30 || 
+                              analysis.contact_score < 30) && (
                                 <div className="rounded-lg border-2 border-red-400 bg-red-50 p-6 shadow dark:bg-red-900/20 dark:border-red-600">
                                     <h2 className="mb-4 flex items-center text-xl font-bold text-red-900 dark:text-red-200">
                                         <svg

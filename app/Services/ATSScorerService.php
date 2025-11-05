@@ -65,25 +65,25 @@ class ATSScorerService
         ];
 
         // +3 pts if valid email found
-        if (!empty($contact['email']) && filter_var($contact['email'], FILTER_VALIDATE_EMAIL)) {
+        if (! empty($contact['email']) && filter_var($contact['email'], FILTER_VALIDATE_EMAIL)) {
             $score += 3;
             $breakdown['email'] = 3;
         }
 
         // +2 pts if phone found
-        if (!empty($contact['phone'])) {
+        if (! empty($contact['phone'])) {
             $score += 2;
             $breakdown['phone'] = 2;
         }
 
         // +3 pts if LinkedIn URL found
-        if (!empty($contact['linkedin'])) {
+        if (! empty($contact['linkedin'])) {
             $score += 3;
             $breakdown['linkedin'] = 3;
         }
 
         // +2 pts if GitHub/portfolio URL found
-        if (!empty($contact['github'])) {
+        if (! empty($contact['github'])) {
             $score += 2;
             $breakdown['github'] = 2;
         }
@@ -102,7 +102,7 @@ class ATSScorerService
     public function calculateLengthScore(string $text): array
     {
         $score = 0;
-        $wordCount = str_word_count($text);
+        $wordCount = $this->countWords($text);
         $breakdown = [
             'length' => 0,
             'actionVerbs' => 0,
@@ -224,5 +224,31 @@ class ATSScorerService
         // Return max 5 suggestions
         return array_slice($suggestions, 0, 5);
     }
-}
 
+    /**
+     * Count words accurately, handling special characters, emails, URLs.
+     */
+    protected function countWords(string $text): int
+    {
+        // Remove excessive whitespace but preserve structure
+        $text = preg_replace('/\s+/', ' ', trim($text));
+
+        // Remove non-printable characters except spaces
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text);
+
+        // Split by whitespace and filter empty strings
+        $words = preg_split('/\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
+
+        // Count words (handle emails, URLs, hyphenated words as single words)
+        $count = 0;
+        foreach ($words as $word) {
+            // Remove special characters but keep alphanumeric, hyphens, dots, @, /
+            $cleanWord = preg_replace('/[^\w\-.@\/]/', '', $word);
+            if (! empty(trim($cleanWord))) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+}

@@ -26,32 +26,32 @@ class SectionDetectorService
     {
         $normalizedText = strtolower($text);
 
-        // Experience section patterns
+        // Experience section patterns (case insensitive)
         $experiencePatterns = [
-            '/\b(work\s+)?experience\b/',
-            '/\bemployment\b/',
-            '/\bprofessional\s+experience\b/',
-            '/\bcareer\s+history\b/',
-            '/\bwork\s+history\b/',
+            '/\b(work\s+)?experience\b/i',
+            '/\bemployment\b/i',
+            '/\bprofessional\s+experience\b/i',
+            '/\bcareer\s+history\b/i',
+            '/\bwork\s+history\b/i',
         ];
 
-        // Education section patterns
+        // Education section patterns (case insensitive)
         $educationPatterns = [
-            '/\beducation\b/',
-            '/\bacademic\b/',
-            '/\bqualifications?\b/',
-            '/\bcredentials?\b/',
-            '/\bdegrees?\b/',
+            '/\beducation\b/i',
+            '/\bacademic\b/i',
+            '/\bqualifications?\b/i',
+            '/\bcredentials?\b/i',
+            '/\bdegrees?\b/i',
         ];
 
-        // Skills section patterns
+        // Skills section patterns (case insensitive)
         $skillsPatterns = [
-            '/\b(technical\s+)?skills\b/',
-            '/\bcore\s+competencies\b/',
-            '/\bproficiencies\b/',
-            '/\bcompetencies\b/',
-            '/\bexpertise\b/',
-            '/\btechnologies?\b/',
+            '/\b(technical\s+)?skills\b/i',
+            '/\bcore\s+competencies\b/i',
+            '/\bproficiencies\b/i',
+            '/\bcompetencies\b/i',
+            '/\bexpertise\b/i',
+            '/\btechnologies?\b/i',
         ];
 
         $hasExperience = false;
@@ -59,21 +59,21 @@ class SectionDetectorService
         $hasSkills = false;
 
         foreach ($experiencePatterns as $pattern) {
-            if (preg_match($pattern, $normalizedText)) {
+            if (preg_match($pattern, $text)) {
                 $hasExperience = true;
                 break;
             }
         }
 
         foreach ($educationPatterns as $pattern) {
-            if (preg_match($pattern, $normalizedText)) {
+            if (preg_match($pattern, $text)) {
                 $hasEducation = true;
                 break;
             }
         }
 
         foreach ($skillsPatterns as $pattern) {
-            if (preg_match($pattern, $normalizedText)) {
+            if (preg_match($pattern, $text)) {
                 $hasSkills = true;
                 break;
             }
@@ -117,9 +117,12 @@ class SectionDetectorService
             }
         }
 
-        // LinkedIn URL pattern
+        // LinkedIn URL pattern - also detect "LinkedIn" as text (acceptable format)
         if (preg_match('/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in|pub|profile)\/[a-zA-Z0-9_-]+/i', $text, $matches)) {
             $linkedin = $matches[0];
+        } elseif (preg_match('/\bLinkedIn\b/i', $text)) {
+            // LinkedIn mentioned as text (acceptable - ATS can still parse it)
+            $linkedin = 'LinkedIn'; // Indicate it exists but not as full URL
         }
 
         // GitHub URL pattern
@@ -135,4 +138,3 @@ class SectionDetectorService
         ];
     }
 }
-
