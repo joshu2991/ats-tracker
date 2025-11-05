@@ -5,6 +5,17 @@ namespace App\Services;
 use Illuminate\Support\Facades\Log;
 use Smalot\PdfParser\Parser;
 
+/**
+ * ATS Parseability Checker Service
+ *
+ * This service performs comprehensive checks on resume files to determine
+ * ATS (Applicant Tracking System) compatibility. It detects format issues,
+ * parseability problems, and content quality indicators.
+ *
+ * IMPORTANT: The bullet point detection logic (countBulletPoints method)
+ * was manually tested with real resumes to ensure accuracy. Any changes
+ * to this logic must be thoroughly tested before deployment.
+ */
 class ATSParseabilityChecker
 {
     /**
@@ -20,87 +31,57 @@ class ATSParseabilityChecker
      */
     public function check(string $filePath, string $parsedText, string $mimeType): array
     {
-        $score = 90; // Start lower (90 instead of 100) for stricter ResumeWorded alignment
+        $score = ATSParseabilityCheckerConstants::STARTING_SCORE;
         $criticalIssues = [];
         $warnings = [];
         $details = [];
 
-        Log::debug('ATSParseabilityChecker: Starting checks', [
-            'text_length' => strlen($parsedText),
-            'first_500_chars' => substr($parsedText, 0, 500),
-        ]);
-
         // Check 1: Text Extractability (scanned image detection)
         $textExtractability = $this->checkTextExtractability($filePath, $parsedText, $mimeType);
         $details['text_extractability'] = $textExtractability;
-        Log::debug('ATSParseabilityChecker: Text extractability check', [
-            'is_scanned_image' => $textExtractability['is_scanned_image'],
-            'extracted_text_length' => $textExtractability['extracted_text_length'] ?? 0,
-            'page_count' => $textExtractability['page_count'] ?? 0,
-        ]);
+
         if ($textExtractability['is_scanned_image']) {
-            $score -= 30;
+            $score -= ATSParseabilityCheckerConstants::PENALTY_SCANNED_IMAGE;
             $criticalIssues[] = $textExtractability['message'];
         }
 
         // Check 2: Table Detection
         $tableDetection = $this->detectTables($parsedText);
         $details['table_detection'] = $tableDetection;
-        Log::debug('ATSParseabilityChecker: Table detection', [
-            'has_tables' => $tableDetection['has_tables'],
-            'table_locations' => $tableDetection['table_locations'] ?? [],
-        ]);
+
         if ($tableDetection['has_tables']) {
-            $score -= 30; // Increased from 20 - stricter penalty aligned with ResumeWorded
+            $score -= ATSParseabilityCheckerConstants::PENALTY_TABLES;
             $warnings[] = $tableDetection['message'];
         }
 
         // Check 3: Multi-Column Layout Detection
         $multiColumn = $this->detectMultiColumnLayout($parsedText);
         $details['multi_column'] = $multiColumn;
-        Log::debug('ATSParseabilityChecker: Multi-column detection', [
-            'has_multi_column' => $multiColumn['has_multi_column'],
-            'confidence_level' => $multiColumn['confidence_level'] ?? 'unknown',
-        ]);
+
         if ($multiColumn['has_multi_column']) {
-            $score -= 25; // Increased from 15 - stricter penalty aligned with ResumeWorded
+            $score -= ATSParseabilityCheckerConstants::PENALTY_MULTI_COLUMN;
             $warnings[] = $multiColumn['message'];
         }
 
         // Check 4: Document Length Verification
         $lengthCheck = $this->verifyDocumentLength($filePath, $parsedText, $mimeType);
         $details['document_length'] = $lengthCheck;
-        Log::debug('ATSParseabilityChecker: Document length check', [
-            'word_count' => $lengthCheck['word_count'] ?? 0,
-            'page_count' => $lengthCheck['page_count'] ?? 0,
-            'is_optimal' => $lengthCheck['is_optimal'] ?? false,
-        ]);
+
         if (! $lengthCheck['is_optimal']) {
-            // Increased penalty for length issues (stricter for ResumeWorded alignment)
             $wordCount = $lengthCheck['word_count'] ?? 0;
-            if ($wordCount < 400) {
-                $score -= 15; // Increased from 10 for short resumes
-            } elseif ($wordCount > 800) {
-                $score -= 12; // Increased from 10 for long resumes
+            if ($wordCount < ATSParseabilityCheckerConstants::WORD_COUNT_MIN) {
+                $score -= ATSParseabilityCheckerConstants::PENALTY_SHORT_RESUME;
+            } elseif ($wordCount > ATSParseabilityCheckerConstants::WORD_COUNT_MAX) {
+                $score -= ATSParseabilityCheckerConstants::PENALTY_LONG_RESUME;
             } else {
-                $score -= 10; // For page count issues
+                $score -= ATSParseabilityCheckerConstants::PENALTY_PAGE_COUNT;
             }
             $warnings[] = $lengthCheck['message'];
         }
 
-        // Check 5: Contact Info Location (expanded to 300 chars)
+        // Check 5: Contact Info Location (expanded to 300 chars for PDF header cases)
         $contactLocation = $this->checkContactInfoLocation($parsedText);
         $details['contact_location'] = $contactLocation;
-        Log::debug('ATSParseabilityChecker: Contact location check', [
-            'email_in_first_300' => $contactLocation['email_in_first_300'] ?? false,
-            'phone_in_first_300' => $contactLocation['phone_in_first_300'] ?? false,
-            'email_in_first_10_lines' => $contactLocation['email_in_first_10_lines'] ?? false,
-            'phone_in_first_10_lines' => $contactLocation['phone_in_first_10_lines'] ?? false,
-            'email_exists' => $contactLocation['email_exists'] ?? false,
-            'phone_exists' => $contactLocation['phone_exists'] ?? false,
-            'may_be_in_pdf_header' => $contactLocation['may_be_in_pdf_header'] ?? false,
-            'first_300_chars' => substr($parsedText, 0, 300),
-        ]);
 
         // Check if contact is in first 300 chars OR first 10 lines (covers PDF header cases)
         $emailInAcceptableArea = $contactLocation['email_in_first_300'] || $contactLocation['email_in_first_10_lines'];
@@ -109,53 +90,43 @@ class ATSParseabilityChecker
         if (! $emailInAcceptableArea && ! $phoneInAcceptableArea) {
             // Only penalize if contact doesn't exist at all OR is really far from top
             if ($contactLocation['email_exists'] || $contactLocation['phone_exists']) {
-                $score -= 15; // Reduced penalty - contact exists but not in ideal location
-                $warnings[] = 'Contact information not found in first 300 characters or top 10 lines. ATS systems may miss this information if it\'s in a header/footer.';
+                $score -= ATSParseabilityCheckerConstants::PENALTY_CONTACT_BAD_LOCATION;
+                $warnings[] = 'Contact information not found in first '.ATSParseabilityCheckerConstants::CONTACT_CHECK_CHARS.' characters or top '.ATSParseabilityCheckerConstants::CONTACT_CHECK_LINES.' lines. ATS systems may miss this information if it\'s in a header/footer.';
             } else {
-                $score -= 25; // Critical: no contact info found anywhere
+                $score -= ATSParseabilityCheckerConstants::PENALTY_NO_CONTACT;
                 $criticalIssues[] = 'No contact information (email or phone) found in the resume. This is critical for ATS systems.';
             }
         } elseif ($contactLocation['may_be_in_pdf_header']) {
             // Contact appears in first 10 lines but not first 300 chars - likely PDF header
             $warnings[] = 'Contact information may be in PDF header/footer. ATS systems may miss headers/footers - consider moving to main body text.';
         } elseif (! $emailInAcceptableArea && $contactLocation['email_exists']) {
-            $warnings[] = 'Email not found in first 300 characters. Consider moving it to the top of the resume for better ATS compatibility.';
+            $warnings[] = 'Email not found in first '.ATSParseabilityCheckerConstants::CONTACT_CHECK_CHARS.' characters. Consider moving it to the top of the resume for better ATS compatibility.';
         } elseif (! $phoneInAcceptableArea && $contactLocation['phone_exists']) {
-            $warnings[] = 'Phone number not found in first 300 characters. Consider moving it to the top of the resume for better ATS compatibility.';
+            $warnings[] = 'Phone number not found in first '.ATSParseabilityCheckerConstants::CONTACT_CHECK_CHARS.' characters. Consider moving it to the top of the resume for better ATS compatibility.';
         }
 
         // Check 6: Date Detection (critical for ATS systems)
         $dateDetection = $this->checkDates($parsedText);
         $details['date_detection'] = $dateDetection;
-        Log::debug('ATSParseabilityChecker: Date detection', [
-            'has_valid_dates' => $dateDetection['has_valid_dates'],
-            'has_placeholders' => $dateDetection['has_placeholders'],
-            'date_count' => $dateDetection['date_count'],
-            'placeholder_count' => $dateDetection['placeholder_count'],
-        ]);
+
         if ($dateDetection['has_placeholders']) {
-            $score -= 20; // Heavy penalty for placeholders like "20XX"
+            $score -= ATSParseabilityCheckerConstants::PENALTY_DATE_PLACEHOLDERS;
             $criticalIssues[] = $dateDetection['message'];
         } elseif (! $dateDetection['has_valid_dates']) {
-            $score -= 25; // Critical: no dates found at all
+            $score -= ATSParseabilityCheckerConstants::PENALTY_NO_DATES;
             $criticalIssues[] = 'No dates found in work experience or education sections. ATS systems require dates to verify employment history and education timeline.';
         }
 
         // Check 7: Experience Level Detection (for length penalty adjustment)
         $experienceLevel = $this->detectExperienceLevel($parsedText);
         $details['experience_level'] = $experienceLevel;
-        Log::debug('ATSParseabilityChecker: Experience level detection', [
-            'years_of_experience' => $experienceLevel['years'] ?? 0,
-            'is_experienced' => $experienceLevel['is_experienced'] ?? false,
-        ]);
 
         // Adjust length penalty based on experience level
         if (! $lengthCheck['is_optimal'] && ($experienceLevel['is_experienced'] ?? false)) {
             $wordCount = $lengthCheck['word_count'] ?? 0;
             // For experienced candidates (5+ years), short resumes are more critical
-            if ($wordCount < 400) {
-                $additionalPenalty = 10; // Additional penalty for experienced candidates with short resumes
-                $score -= $additionalPenalty;
+            if ($wordCount < ATSParseabilityCheckerConstants::WORD_COUNT_MIN) {
+                $score -= ATSParseabilityCheckerConstants::PENALTY_EXPERIENCED_SHORT_RESUME;
                 $warnings[] = 'Resume is too short for your experience level. With '.($experienceLevel['years'] ?? 0).'+ years of experience, you should have more content to showcase your achievements.';
             }
         }
@@ -163,33 +134,27 @@ class ATSParseabilityChecker
         // Check 8: Name Detection (critical for ATS systems)
         $nameDetection = $this->checkName($parsedText);
         $details['name_detection'] = $nameDetection;
-        Log::debug('ATSParseabilityChecker: Name detection', [
-            'has_name' => $nameDetection['has_name'],
-            'name_found' => $nameDetection['name'] ?? null,
-        ]);
+
         if (! $nameDetection['has_name']) {
-            $score -= 20; // Critical: no name found
+            $score -= ATSParseabilityCheckerConstants::PENALTY_NO_NAME;
             $criticalIssues[] = 'No name found in the resume. ATS systems require a candidate name for proper identification and tracking.';
         }
 
         // Check 9: Summary/Profile Detection
         $summaryDetection = $this->checkSummary($parsedText);
         $details['summary_detection'] = $summaryDetection;
-        Log::debug('ATSParseabilityChecker: Summary detection', [
-            'has_summary' => $summaryDetection['has_summary'],
-        ]);
+
         if (! $summaryDetection['has_summary']) {
-            $score -= 10; // Penalty for missing summary (not critical but important)
+            $score -= ATSParseabilityCheckerConstants::PENALTY_NO_SUMMARY;
             $warnings[] = 'No summary or professional profile section found. A summary section helps ATS systems and recruiters quickly understand your background and career goals.';
         }
 
         // Check 10: Bullet Point Count
+        // NOTE: This method uses complex logic that was manually tested with real resumes.
+        // Any changes to countBulletPoints() must be thoroughly tested.
         $bulletPointCount = $this->countBulletPoints($parsedText);
         $details['bullet_point_count'] = $bulletPointCount;
-        Log::debug('ATSParseabilityChecker: Bullet point count', [
-            'bullet_count' => $bulletPointCount['count'],
-            'is_optimal' => $bulletPointCount['is_optimal'],
-        ]);
+
         if (! $bulletPointCount['is_optimal']) {
             $bulletCount = $bulletPointCount['count'];
             $bySection = $bulletPointCount['by_section'] ?? ['experience' => 0, 'projects' => 0, 'other' => 0];
@@ -200,16 +165,16 @@ class ATSParseabilityChecker
             // Ideal: 12-20 bullet points total, with 8+ in Experience section
             // Experience bullets are more important than Projects for ATS systems
             $penalty = match (true) {
-                $bulletCount < 5 => 20, // Very few bullets - heavy penalty
-                $bulletCount < 8 => 15, // Few bullets - significant penalty
-                default => 10, // Some bullets but not enough
+                $bulletCount < ATSParseabilityCheckerConstants::BULLETS_VERY_FEW => ATSParseabilityCheckerConstants::PENALTY_VERY_FEW_BULLETS,
+                $bulletCount < ATSParseabilityCheckerConstants::BULLETS_FEW => ATSParseabilityCheckerConstants::PENALTY_FEW_BULLETS,
+                default => ATSParseabilityCheckerConstants::PENALTY_INSUFFICIENT_BULLETS,
             };
 
             // Additional penalty if Experience section has too few bullets
-            if ($experienceBullets < 8) {
+            if ($experienceBullets < ATSParseabilityCheckerConstants::BULLETS_EXPERIENCE_MIN) {
                 $penalty += match (true) {
-                    $experienceBullets < 3 => 10, // Very few experience bullets
-                    $experienceBullets < 5 => 5, // Few experience bullets
+                    $experienceBullets < ATSParseabilityCheckerConstants::BULLETS_EXPERIENCE_VERY_FEW => ATSParseabilityCheckerConstants::PENALTY_VERY_FEW_EXPERIENCE_BULLETS,
+                    $experienceBullets < ATSParseabilityCheckerConstants::BULLETS_EXPERIENCE_FEW => ATSParseabilityCheckerConstants::PENALTY_FEW_EXPERIENCE_BULLETS,
                     default => 0,
                 };
             }
@@ -222,7 +187,7 @@ class ATSParseabilityChecker
             $hasNonStandardBullets = $potentialNonStandardBullets > 0;
 
             // Generate specific warning message based on section distribution
-            $warningMessage = "Resume has {$bulletCount} total bullet points (recommended: 12-20). ";
+            $warningMessage = "Resume has {$bulletCount} total bullet points (recommended: ".ATSParseabilityCheckerConstants::BULLETS_MIN_OPTIMAL.'-'.ATSParseabilityCheckerConstants::BULLETS_MAX_OPTIMAL.'). ';
 
             // Always show breakdown if we detected sections
             $sectionsFound = $bulletPointCount['sections_found'] ?? [];
@@ -241,7 +206,7 @@ class ATSParseabilityChecker
             }
 
             // Add warning about non-standard bullets if detected
-            if ($hasNonStandardBullets && $bulletCount < 12) {
+            if ($hasNonStandardBullets && $bulletCount < ATSParseabilityCheckerConstants::BULLETS_MIN_OPTIMAL) {
                 $nonStandardProjects = $nonStandardBySection['projects'] ?? 0;
                 $nonStandardExperience = $nonStandardBySection['experience'] ?? 0;
 
@@ -253,16 +218,16 @@ class ATSParseabilityChecker
             // Generate specific recommendation based on section distribution
             $hasProjectsSection = in_array('projects', $sectionsFound, true);
 
-            if ($experienceBullets < 8) {
-                $warningMessage .= 'Focus on adding more bullet points in your Experience section (aim for 8-12 bullets). ';
-            } elseif ($bulletCount < 12) {
+            if ($experienceBullets < ATSParseabilityCheckerConstants::BULLETS_EXPERIENCE_MIN) {
+                $warningMessage .= 'Focus on adding more bullet points in your Experience section (aim for '.ATSParseabilityCheckerConstants::BULLETS_EXPERIENCE_MIN.'-'.ATSParseabilityCheckerConstants::BULLETS_MIN_OPTIMAL.' bullets). ';
+            } elseif ($bulletCount < ATSParseabilityCheckerConstants::BULLETS_MIN_OPTIMAL) {
                 // If Experience has enough bullets but total is low, suggest adding to specific sections
                 // Only suggest adding to Projects if it truly has 0 bullets (not just undetected)
-                if ($hasProjectsSection && $projectsBullets === 0 && $experienceBullets >= 8) {
+                if ($hasProjectsSection && $projectsBullets === 0 && $experienceBullets >= ATSParseabilityCheckerConstants::BULLETS_EXPERIENCE_MIN) {
                     $warningMessage .= 'Your Projects section has no bullet points - consider adding bullet points to showcase your work. ';
-                } elseif ($hasProjectsSection && $experienceBullets >= 8 && $projectsBullets > 0 && $projectsBullets < 3) {
+                } elseif ($hasProjectsSection && $experienceBullets >= ATSParseabilityCheckerConstants::BULLETS_EXPERIENCE_MIN && $projectsBullets > 0 && $projectsBullets < ATSParseabilityCheckerConstants::BULLETS_IMPLICIT_MIN) {
                     $warningMessage .= 'Consider adding more bullet points to your Projects section (currently has '.$projectsBullets.'). ';
-                } elseif ($experienceBullets >= 8 && ($projectsBullets > 0 || ! $hasProjectsSection)) {
+                } elseif ($experienceBullets >= ATSParseabilityCheckerConstants::BULLETS_EXPERIENCE_MIN && ($projectsBullets > 0 || ! $hasProjectsSection)) {
                     $warningMessage .= 'Consider adding more bullet points to highlight achievements and metrics. ';
                 } else {
                     $warningMessage .= 'Consider adding more bullet points across all sections to highlight achievements and metrics. ';
@@ -277,32 +242,22 @@ class ATSParseabilityChecker
         // Check 11: Quantifiable Metrics Detection
         $metricsDetection = $this->checkQuantifiableMetrics($parsedText);
         $details['metrics_detection'] = $metricsDetection;
-        Log::debug('ATSParseabilityChecker: Metrics detection', [
-            'has_metrics' => $metricsDetection['has_metrics'],
-            'metric_count' => $metricsDetection['metric_count'],
-        ]);
+
         if (! $metricsDetection['has_metrics']) {
-            $score -= 15; // Penalty for lack of quantifiable achievements
+            $score -= ATSParseabilityCheckerConstants::PENALTY_NO_METRICS;
             $warnings[] = 'Resume lacks quantifiable metrics and specific numbers. ATS systems and recruiters value resumes with measurable achievements (e.g., "increased sales by 30%", "managed team of 5", "reduced costs by $50K").';
         }
 
         // Ensure score doesn't go below 0
-        $score = max(0, $score);
+        $score = max(ATSParseabilityCheckerConstants::MIN_SCORE, $score);
 
         // Determine confidence level
         $issueCount = count($criticalIssues) + count($warnings);
         $confidence = match (true) {
-            $issueCount === 0 => 'high',
-            $issueCount <= 2 => 'medium',
+            $issueCount === ATSParseabilityCheckerConstants::CONFIDENCE_HIGH_MAX_ISSUES => 'high',
+            $issueCount <= ATSParseabilityCheckerConstants::CONFIDENCE_MEDIUM_MAX_ISSUES => 'medium',
             default => 'low',
         };
-
-        Log::debug('ATSParseabilityChecker: Final results', [
-            'final_score' => $score,
-            'confidence' => $confidence,
-            'critical_issues_count' => count($criticalIssues),
-            'warnings_count' => count($warnings),
-        ]);
 
         return [
             'score' => $score,
@@ -315,6 +270,21 @@ class ATSParseabilityChecker
 
     /**
      * Check if PDF is a scanned image (no extractable text).
+     *
+     * Scanned PDFs are images of documents, not actual text-based PDFs. ATS systems
+     * cannot extract text from scanned images, making them incompatible.
+     *
+     * Detection Strategy:
+     * - For multi-page PDFs: If text length < 50 chars, likely scanned
+     * - For single-page PDFs: If text length < 20 chars, likely scanned
+     * - Uses PDF parser to get actual page count for accurate detection
+     *
+     * @return array{
+     *     is_scanned_image: bool,
+     *     message: string,
+     *     page_count?: int,
+     *     text_length?: int
+     * }
      */
     protected function checkTextExtractability(string $filePath, string $parsedText, string $mimeType): array
     {
@@ -333,8 +303,8 @@ class ATSParseabilityChecker
 
             $textLength = strlen(trim($parsedText));
 
-            // If text is very short (< 50 chars) but PDF has multiple pages, likely scanned
-            if ($textLength < 50 && $pageCount > 1) {
+            // If text is very short but PDF has multiple pages, likely scanned
+            if ($textLength < ATSParseabilityCheckerConstants::TEXT_LENGTH_MIN_MULTI_PAGE && $pageCount > 1) {
                 return [
                     'is_scanned_image' => true,
                     'message' => 'PDF appears to be a scanned image. ATS systems cannot extract text from images. Consider using OCR or recreating as a text-based PDF.',
@@ -343,8 +313,8 @@ class ATSParseabilityChecker
                 ];
             }
 
-            // If text is very short (< 20 chars) even on single page, likely scanned
-            if ($textLength < 20) {
+            // If text is very short even on single page, likely scanned
+            if ($textLength < ATSParseabilityCheckerConstants::TEXT_LENGTH_MIN_SINGLE_PAGE) {
                 return [
                     'is_scanned_image' => true,
                     'message' => 'PDF appears to be a scanned image with minimal text extraction. ATS systems may struggle to parse this document.',
@@ -374,6 +344,22 @@ class ATSParseabilityChecker
 
     /**
      * Detect if resume uses tables.
+     *
+     * Tables are problematic for ATS systems because they can cause text to be
+     * read in the wrong order or scrambled. This method detects table-like structures
+     * by looking for patterns of multiple columns (3+ spaces or tabs separating content).
+     *
+     * Detection Strategy:
+     * - Looks for lines with 3+ spaces or tabs (indicating columns)
+     * - Counts columns by splitting on whitespace
+     * - Requires at least 3 lines with table patterns to confirm tables exist
+     *
+     * @return array{
+     *     has_tables: bool,
+     *     message: string,
+     *     table_line_count: int,
+     *     approximate_lines: array<int>
+     * }
      */
     protected function detectTables(string $text): array
     {
@@ -388,14 +374,14 @@ class ATSParseabilityChecker
                 $columns = preg_split('/\s{3,}|\t+/', trim($line));
                 $columnCount = count(array_filter($columns, fn ($col) => trim($col) !== ''));
 
-                if ($columnCount >= 3) {
+                if ($columnCount >= ATSParseabilityCheckerConstants::TABLE_MIN_COLUMNS) {
                     $tableLines[] = $lineNum + 1;
                     $tablePatterns++;
                 }
             }
         }
 
-        $hasTables = $tablePatterns >= 3; // Need at least 3 lines with table patterns
+        $hasTables = $tablePatterns >= ATSParseabilityCheckerConstants::TABLE_MIN_PATTERNS;
 
         return [
             'has_tables' => $hasTables,
@@ -409,6 +395,23 @@ class ATSParseabilityChecker
 
     /**
      * Detect multi-column layout.
+     *
+     * Multi-column layouts (like newspaper columns) cause ATS systems to read text
+     * in the wrong order. ATS systems read left-to-right, top-to-bottom, but
+     * multi-column layouts require reading down one column, then the next.
+     *
+     * Detection Strategy:
+     * - Pattern 1: Very short line followed by long line (text jumping between columns)
+     * - Pattern 2: Lines with text on both ends (left-right alignment)
+     * - Pattern 3: Very inconsistent line lengths (short, long, short, long pattern)
+     * - Requires at least 10 suspicious patterns to confirm multi-column layout
+     *
+     * @return array{
+     *     has_multi_column: bool,
+     *     message: string,
+     *     confidence: 'high'|'medium'|'low',
+     *     suspicious_patterns: int
+     * }
      */
     protected function detectMultiColumnLayout(string $text): array
     {
@@ -421,7 +424,7 @@ class ATSParseabilityChecker
         // 2. Lines that seem to have text on both ends (left-right alignment)
         // 3. Inconsistent line lengths in adjacent lines
 
-        for ($i = 0; $i < min(50, $totalLines - 1); $i++) {
+        for ($i = 0; $i < min(ATSParseabilityCheckerConstants::MULTI_COLUMN_CHECK_LINES, $totalLines - 1); $i++) {
             $currentLine = trim($lines[$i]);
             $nextLine = isset($lines[$i + 1]) ? trim($lines[$i + 1]) : '';
 
@@ -434,7 +437,7 @@ class ATSParseabilityChecker
             $nextLength = strlen($nextLine);
 
             // Pattern 1: Very short line followed by long line (text jumping)
-            if ($currentLength < 30 && $nextLength > 80) {
+            if ($currentLength < ATSParseabilityCheckerConstants::MULTI_COLUMN_SHORT_LINE && $nextLength > ATSParseabilityCheckerConstants::MULTI_COLUMN_LONG_LINE) {
                 $suspiciousLines++;
             }
 
@@ -447,16 +450,16 @@ class ATSParseabilityChecker
             // Pattern 3: Very inconsistent lengths (short, long, short, long pattern)
             if ($i > 0 && isset($lines[$i - 1])) {
                 $prevLength = strlen(trim($lines[$i - 1]));
-                if (abs($currentLength - $prevLength) > 60 && abs($currentLength - $nextLength) > 60) {
+                if (abs($currentLength - $prevLength) > ATSParseabilityCheckerConstants::MULTI_COLUMN_LENGTH_DIFF && abs($currentLength - $nextLength) > ATSParseabilityCheckerConstants::MULTI_COLUMN_LENGTH_DIFF) {
                     $suspiciousLines++;
                 }
             }
         }
 
-        $hasMultiColumn = $suspiciousLines >= 10; // Threshold for multi-column detection
+        $hasMultiColumn = $suspiciousLines >= ATSParseabilityCheckerConstants::MULTI_COLUMN_MIN_PATTERNS;
         $confidence = match (true) {
-            $suspiciousLines >= 20 => 'high',
-            $suspiciousLines >= 10 => 'medium',
+            $suspiciousLines >= ATSParseabilityCheckerConstants::MULTI_COLUMN_HIGH_CONFIDENCE => 'high',
+            $suspiciousLines >= ATSParseabilityCheckerConstants::MULTI_COLUMN_MIN_PATTERNS => 'medium',
             default => 'low',
         };
 
@@ -487,20 +490,19 @@ class ATSParseabilityChecker
                 $pageCount = count($pages);
             } catch (\Exception $e) {
                 // If we can't get page count, estimate based on word count
-                // Average: ~400-500 words per page
-                $pageCount = max(1, (int) ceil($wordCount / 400));
+                $pageCount = max(ATSParseabilityCheckerConstants::PAGE_COUNT_MIN, (int) ceil($wordCount / ATSParseabilityCheckerConstants::WORDS_PER_PAGE));
             }
         }
 
-        $isOptimalLength = $wordCount >= 400 && $wordCount <= 800;
-        $isOptimalPages = $pageCount >= 1 && $pageCount <= 2;
+        $isOptimalLength = $wordCount >= ATSParseabilityCheckerConstants::WORD_COUNT_MIN && $wordCount <= ATSParseabilityCheckerConstants::WORD_COUNT_MAX;
+        $isOptimalPages = $pageCount >= ATSParseabilityCheckerConstants::PAGE_COUNT_MIN && $pageCount <= ATSParseabilityCheckerConstants::PAGE_COUNT_MAX;
 
         $isOptimal = $isOptimalLength && $isOptimalPages;
 
         $message = match (true) {
-            $wordCount < 400 => "Resume is too short ({$wordCount} words, ideal: 400-800). Consider adding more detail about your experience and achievements.",
-            $wordCount > 800 => "Resume is too long ({$wordCount} words, ideal: 400-800). Consider condensing to 1-2 pages.",
-            $pageCount > 2 => "Resume is too long ({$pageCount} pages, ideal: 1-2 pages). ATS systems and recruiters prefer concise resumes.",
+            $wordCount < ATSParseabilityCheckerConstants::WORD_COUNT_MIN => "Resume is too short ({$wordCount} words, ideal: ".ATSParseabilityCheckerConstants::WORD_COUNT_MIN.'-'.ATSParseabilityCheckerConstants::WORD_COUNT_MAX.'). Consider adding more detail about your experience and achievements.',
+            $wordCount > ATSParseabilityCheckerConstants::WORD_COUNT_MAX => "Resume is too long ({$wordCount} words, ideal: ".ATSParseabilityCheckerConstants::WORD_COUNT_MIN.'-'.ATSParseabilityCheckerConstants::WORD_COUNT_MAX.'). Consider condensing to '.ATSParseabilityCheckerConstants::PAGE_COUNT_MIN.'-'.ATSParseabilityCheckerConstants::PAGE_COUNT_MAX.' pages.',
+            $pageCount > ATSParseabilityCheckerConstants::PAGE_COUNT_MAX => "Resume is too long ({$pageCount} pages, ideal: ".ATSParseabilityCheckerConstants::PAGE_COUNT_MIN.'-'.ATSParseabilityCheckerConstants::PAGE_COUNT_MAX.' pages). ATS systems and recruiters prefer concise resumes.',
             default => 'Document length is optimal',
         };
 
@@ -520,12 +522,12 @@ class ATSParseabilityChecker
     protected function checkContactInfoLocation(string $text): array
     {
         // Expanded check: first 300 chars (was 200) to account for PDF parsing variations
-        $first300Chars = substr($text, 0, 300);
+        $first300Chars = substr($text, 0, ATSParseabilityCheckerConstants::CONTACT_CHECK_CHARS);
         $fullText = $text;
 
         // Also check first 10 lines for header detection
         $lines = explode("\n", $text);
-        $first10Lines = implode("\n", array_slice($lines, 0, 10));
+        $first10Lines = implode("\n", array_slice($lines, 0, ATSParseabilityCheckerConstants::CONTACT_CHECK_LINES));
         $checkArea = $first300Chars."\n".$first10Lines; // Combine both for comprehensive check
 
         // Check for email in first 300 chars
@@ -672,7 +674,7 @@ class ATSParseabilityChecker
 
         // Check if "Present" or "Current" are used but no actual dates found
         $hasPresent = (bool) preg_match('/\b(Present|Current)\b/i', $text);
-        $hasValidDates = $dateCount >= 2; // Need at least 2 dates (start and end) for work experience
+        $hasValidDates = $dateCount >= ATSParseabilityCheckerConstants::MIN_DATE_COUNT;
 
         // If has placeholders like "20XX", it's a critical issue
         if ($placeholderCount > 0 && preg_match('/\b20XX\b/i', $text)) {
@@ -743,17 +745,17 @@ class ATSParseabilityChecker
                 // Estimate based on number of positions mentioned
                 // This is a heuristic - not perfect but better than nothing
                 $positionCount = preg_match_all('/\b(?:Senior|Junior|Lead|Manager|Developer|Engineer|Analyst|Specialist|Coordinator|Director|VP|President|CEO|CTO|Founder|Co-founder)\b/i', $text);
-                if ($positionCount >= 3) {
-                    $maxYears = 5; // Assume at least 5 years if 3+ positions
-                } elseif ($positionCount >= 2) {
-                    $maxYears = 3; // Assume at least 3 years if 2+ positions
+                if ($positionCount >= ATSParseabilityCheckerConstants::MIN_POSITIONS_FOR_5_YEARS) {
+                    $maxYears = ATSParseabilityCheckerConstants::ESTIMATED_YEARS_MANY_POSITIONS;
+                } elseif ($positionCount >= ATSParseabilityCheckerConstants::MIN_POSITIONS_FOR_3_YEARS) {
+                    $maxYears = ATSParseabilityCheckerConstants::ESTIMATED_YEARS_FEW_POSITIONS;
                 }
             }
         }
 
         return [
             'years' => $maxYears,
-            'is_experienced' => $maxYears >= 5, // 5+ years considered "experienced"
+            'is_experienced' => $maxYears >= ATSParseabilityCheckerConstants::EXPERIENCED_YEARS,
         ];
     }
 
@@ -765,9 +767,9 @@ class ATSParseabilityChecker
     protected function checkName(string $text): array
     {
         // Look for name patterns in first 200 characters (where name typically appears)
-        $first200Chars = substr($text, 0, 200);
+        $first200Chars = substr($text, 0, ATSParseabilityCheckerConstants::NAME_CHECK_CHARS);
         $lines = explode("\n", $first200Chars);
-        $firstFewLines = array_slice(array_filter($lines), 0, 5);
+        $firstFewLines = array_slice(array_filter($lines), 0, ATSParseabilityCheckerConstants::NAME_CHECK_LINES);
 
         // Check for common name patterns:
         // 1. Capitalized words (2-3 words) at start of resume
@@ -775,7 +777,7 @@ class ATSParseabilityChecker
         foreach ($firstFewLines as $line) {
             $line = trim($line);
             // Skip empty lines or lines that are clearly not names
-            if (empty($line) || strlen($line) > 50) {
+            if (empty($line) || strlen($line) > ATSParseabilityCheckerConstants::NAME_MAX_LINE_LENGTH) {
                 continue;
             }
 
@@ -800,7 +802,7 @@ class ATSParseabilityChecker
 
                 // If it's a short line (2-4 words) and not a header, it's likely a name
                 $wordCount = count(explode(' ', $line));
-                if (! $isHeader && $wordCount >= 2 && $wordCount <= 4) {
+                if (! $isHeader && $wordCount >= ATSParseabilityCheckerConstants::NAME_MIN_WORDS && $wordCount <= ATSParseabilityCheckerConstants::NAME_MAX_WORDS) {
                     return [
                         'has_name' => true,
                         'name' => $line,
@@ -810,7 +812,7 @@ class ATSParseabilityChecker
         }
 
         // Fallback: check if there's a capitalized word pattern in first 100 chars
-        $first100Chars = substr($text, 0, 100);
+        $first100Chars = substr($text, 0, ATSParseabilityCheckerConstants::NAME_FALLBACK_CHARS);
         // Try title case first
         if (preg_match('/^[A-Z][a-z]+\s+[A-Z][a-z]+/', $first100Chars, $matches)) {
             return [
@@ -831,7 +833,7 @@ class ATSParseabilityChecker
                     break;
                 }
             }
-            if (! $isHeader && strlen($name) <= 30) {
+            if (! $isHeader && strlen($name) <= ATSParseabilityCheckerConstants::NAME_MAX_LENGTH) {
                 return [
                     'has_name' => true,
                     'name' => $name,
@@ -865,10 +867,10 @@ class ATSParseabilityChecker
                 if ($matches) {
                     $position = $match[0][1];
                     // Get text after the header (next 300 chars)
-                    $afterHeader = substr($text, $position, 300);
+                    $afterHeader = substr($text, $position, ATSParseabilityCheckerConstants::SUMMARY_CHECK_CHARS);
                     // Check if there's substantial content (at least 20 words)
                     $wordCount = $this->countWords($afterHeader);
-                    if ($wordCount >= 20) {
+                    if ($wordCount >= ATSParseabilityCheckerConstants::SUMMARY_MIN_WORDS) {
                         return [
                             'has_summary' => true,
                         ];
@@ -884,9 +886,40 @@ class ATSParseabilityChecker
 
     /**
      * Count bullet points in resume by section.
-     * Detects various bullet formats: •, ◦, numbers (1. 2. 3.), checkmarks (✓), arrows (→), dashes (-), etc.
      *
-     * @return array{count: int, is_optimal: bool, by_section: array{experience: int, projects: int, other: int}, sections_found: array<string>}
+     * This method uses a multi-pass detection algorithm to identify bullet points across
+     * different sections of a resume. It handles various bullet formats including:
+     * - Standard bullets: •, ◦, ▪, ▫, ◘, ◙, ◉, ○, ●
+     * - Checkmarks: ✓, ✔, ☑, ✅
+     * - Arrows: →, ⇒, ➜, ➤
+     * - Dashes and asterisks: -, *
+     * - Numbered lists: 1. 2. 3.
+     * - Non-standard bullets (from PDF encoding issues)
+     *
+     * Detection Strategy:
+     * 1. First Pass: Detects bullets on separate lines (bullet character alone, content on next line)
+     * 2. Second Pass: Detects bullets inline with content (bullet + text on same line)
+     * 3. Fallback: More permissive detection for indented or formatted bullets
+     * 4. Numbered Lists: Detects numbered list patterns
+     * 5. Implicit Detection: Detects action-verb lines and short capitalized lines that act as bullets
+     *
+     * Section Tracking:
+     * - Tracks which section each bullet belongs to (Experience, Projects, Other)
+     * - Uses regex patterns to detect section headers
+     * - Maintains section context throughout all passes
+     *
+     * IMPORTANT: This logic was manually tested with real resumes to ensure accuracy.
+     * The thresholds and detection patterns are calibrated based on actual resume formats.
+     * Any changes to this method must be thoroughly tested with real resume samples.
+     *
+     * @return array{
+     *     count: int,
+     *     is_optimal: bool,
+     *     by_section: array{experience: int, projects: int, other: int},
+     *     sections_found: array<string>,
+     *     potential_non_standard_bullets: int,
+     *     non_standard_by_section: array{experience: int, projects: int, other: int}
+     * }
      */
     protected function countBulletPoints(string $text): array
     {
@@ -948,16 +981,6 @@ class ATSParseabilityChecker
                 continue;
             }
 
-            // Log for debugging: track lines after Projects detection
-            if ($currentSection === 'projects' && $index > 39) {
-                Log::debug('ATSParseabilityChecker: Processing line after Projects (first pass)', [
-                    'line_index' => $index,
-                    'line_preview' => substr($trimmedLine, 0, 50),
-                    'line_length' => mb_strlen($trimmedLine),
-                    'current_section' => $currentSection,
-                ]);
-            }
-
             // Check if line is a section header and update current section
             // Check Experience first
             $isExperienceSection = false;
@@ -982,15 +1005,6 @@ class ATSParseabilityChecker
                         if (! in_array('projects', $sectionsFound, true)) {
                             $sectionsFound[] = 'projects';
                         }
-                        Log::debug('ATSParseabilityChecker: Projects section detected (first pass)', [
-                            'line' => $trimmedLine,
-                            'pattern' => $pattern,
-                            'index' => $index,
-                            'old_section' => $oldSection,
-                            'new_section' => $currentSection,
-                            'sections_found' => $sectionsFound,
-                            'bullets_by_section' => $bulletsBySection,
-                        ]);
                         break;
                     }
                 }
@@ -1004,50 +1018,16 @@ class ATSParseabilityChecker
             $isOnlyBullet = false;
             $lineLength = mb_strlen($trimmedLine);
 
-            // Log for debugging: track when we're checking for bullets
-            if ($currentSection === 'projects' && $lineLength <= 3) {
-                Log::debug('ATSParseabilityChecker: Checking if line is bullet (first pass)', [
-                    'line_index' => $index,
-                    'line_content' => $trimmedLine,
-                    'line_length' => $lineLength,
-                    'line_hex' => bin2hex($trimmedLine),
-                    'current_section' => $currentSection,
-                    'first_char_hex' => mb_strlen($trimmedLine) > 0 ? bin2hex(mb_substr($trimmedLine, 0, 1)) : 'empty',
-                ]);
-            }
-
             // Very short line (likely just a bullet) - check if it's ONLY a bullet character
-            if ($lineLength <= 3) {
+            if ($lineLength <= ATSParseabilityCheckerConstants::BULLET_LINE_MAX_LENGTH) {
                 // Method 1: Direct character comparison
                 foreach ($bulletChars as $char) {
                     $charHex = bin2hex($char);
                     $lineHex = bin2hex($trimmedLine);
                     $isMatch = $trimmedLine === $char;
 
-                    // Log for debugging Projects bullets
-                    if ($currentSection === 'projects' && $lineLength === 1) {
-                        Log::debug('ATSParseabilityChecker: Comparing bullet character', [
-                            'line_index' => $index,
-                            'line_content' => $trimmedLine,
-                            'line_hex' => $lineHex,
-                            'char' => $char,
-                            'char_hex' => $charHex,
-                            'is_match' => $isMatch,
-                            'current_section' => $currentSection,
-                        ]);
-                    }
-
                     if ($isMatch) {
                         $isOnlyBullet = true;
-                        // Log for debugging Projects bullets
-                        Log::debug('ATSParseabilityChecker: Bullet solo detected (first pass)', [
-                            'bullet_line_index' => $index,
-                            'bullet_line' => $trimmedLine,
-                            'bullet_char' => $char,
-                            'current_section' => $currentSection,
-                            'line_length' => $lineLength,
-                            'is_projects' => $currentSection === 'projects',
-                        ]);
                         break;
                     }
                 }
@@ -1064,7 +1044,7 @@ class ATSParseabilityChecker
                 }
 
                 // Method 3: Check if line contains any bullet character (fallback)
-                if (! $isOnlyBullet && $lineLength <= 2) {
+                if (! $isOnlyBullet && $lineLength <= ATSParseabilityCheckerConstants::BULLET_LINE_MAX_LENGTH) {
                     foreach ($bulletChars as $char) {
                         if (mb_strpos($trimmedLine, $char) !== false) {
                             $isOnlyBullet = true;
@@ -1076,9 +1056,9 @@ class ATSParseabilityChecker
                 // Method 4: Pattern-based detection - if line is very short (1-3 chars) and next line has content,
                 // it's likely a bullet on a separate line (common resume formatting pattern)
                 // This catches non-standard bullets that don't match known characters
-                if (! $isOnlyBullet && $lineLength <= 3) {
+                if (! $isOnlyBullet && $lineLength <= ATSParseabilityCheckerConstants::BULLET_LINE_MAX_LENGTH) {
                     $nextLineIndex = $index + 1;
-                    $lookAheadLines = 3; // Look up to 3 lines ahead
+                    $lookAheadLines = ATSParseabilityCheckerConstants::BULLET_LOOKAHEAD_LINES;
                     $foundContentAhead = false;
 
                     // Check if any of the next few lines have substantial content
@@ -1086,7 +1066,7 @@ class ATSParseabilityChecker
                         if (isset($lines[$checkIndex])) {
                             $checkLine = trim($lines[$checkIndex]);
                             // If line has substantial content (10+ chars), treat current line as bullet
-                            if (! empty($checkLine) && mb_strlen($checkLine) >= 10) {
+                            if (! empty($checkLine) && mb_strlen($checkLine) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
                                 // Additional check: current line should not be a header or date
                                 $isHeaderOrDate = preg_match('/^(PROFESSIONAL|EXPERIENCE|EDUCATION|PROJECTS|SKILLS|SUMMARY|LANGUAGES|CERTIFICATIONS|LEADERSHIP)/i', $trimmedLine) ||
                                                 preg_match('/\d{4}/', $trimmedLine) ||
@@ -1095,18 +1075,6 @@ class ATSParseabilityChecker
                                 if (! $isHeaderOrDate) {
                                     $isOnlyBullet = true;
                                     $foundContentAhead = true;
-
-                                    // Log for debugging non-standard bullets
-                                    if ($currentSection === 'projects') {
-                                        Log::debug('ATSParseabilityChecker: Non-standard bullet detected (Method 4)', [
-                                            'bullet_line_index' => $index,
-                                            'bullet_line' => $trimmedLine,
-                                            'bullet_hex' => bin2hex($trimmedLine),
-                                            'content_line_index' => $checkIndex,
-                                            'content_preview' => substr($checkLine, 0, 50),
-                                            'current_section' => $currentSection,
-                                        ]);
-                                    }
                                     break;
                                 }
                             }
@@ -1122,31 +1090,12 @@ class ATSParseabilityChecker
                 $foundContent = false;
                 $searchAttempts = 0;
 
-                Log::debug('ATSParseabilityChecker: Searching for content after bullet', [
-                    'bullet_line_index' => $index,
-                    'bullet_line' => $trimmedLine,
-                    'current_section' => $currentSection,
-                    'next_line_index' => $nextLineIndex,
-                    'max_search_lines' => 3,
-                ]);
-
                 while (isset($lines[$nextLineIndex]) && ! $foundContent) {
                     $nextLine = trim($lines[$nextLineIndex]);
                     $searchAttempts++;
 
-                    Log::debug('ATSParseabilityChecker: Checking line for content', [
-                        'bullet_line_index' => $index,
-                        'checking_line_index' => $nextLineIndex,
-                        'line_content' => $nextLine,
-                        'line_length' => mb_strlen($nextLine),
-                        'is_empty' => empty($nextLine),
-                        'has_sufficient_length' => mb_strlen($nextLine) >= 10,
-                        'already_processed' => in_array($nextLine, $processedLines, true),
-                        'current_section' => $currentSection,
-                    ]);
-
                     // If next line has content, count it as a bullet point
-                    if (! empty($nextLine) && mb_strlen($nextLine) >= 10) {
+                    if (! empty($nextLine) && mb_strlen($nextLine) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
                         // Skip if next line is already processed
                         if (! in_array($nextLine, $processedLines, true)) {
                             $count++;
@@ -1154,52 +1103,13 @@ class ATSParseabilityChecker
                             // Track which section this bullet belongs to
                             $bulletsBySection[$currentSection]++;
 
-                            // Log for debugging Projects bullets (always log to see what's happening)
-                            Log::debug('ATSParseabilityChecker: Bullet content found and assigned', [
-                                'bullet_line_index' => $index,
-                                'bullet_line' => $trimmedLine,
-                                'content_line_index' => $nextLineIndex,
-                                'content_preview' => substr($nextLine, 0, 50),
-                                'current_section' => $currentSection,
-                                'is_projects' => $currentSection === 'projects',
-                                'bullets_by_section' => $bulletsBySection,
-                                'total_bullets' => $count,
-                                'processed_lines_count' => count($processedLines),
-                            ]);
-
                             $foundContent = true;
                         } else {
-                            // Log if content was already processed
-                            Log::debug('ATSParseabilityChecker: Bullet content already processed', [
-                                'bullet_line_index' => $index,
-                                'content_line_index' => $nextLineIndex,
-                                'content_preview' => substr($nextLine, 0, 50),
-                                'current_section' => $currentSection,
-                                'is_projects' => $currentSection === 'projects',
-                                'processed_lines_count' => count($processedLines),
-                            ]);
+
                         }
                     }
                     $nextLineIndex++;
-                    // Limit search to next 3 lines to avoid going too far
-                    if ($nextLineIndex > $index + 3) {
-                        Log::debug('ATSParseabilityChecker: Reached max search lines', [
-                            'bullet_line_index' => $index,
-                            'max_lines' => 3,
-                            'search_attempts' => $searchAttempts,
-                            'found_content' => $foundContent,
-                        ]);
-                        break;
-                    }
-                }
 
-                if (! $foundContent) {
-                    Log::debug('ATSParseabilityChecker: No content found after bullet', [
-                        'bullet_line_index' => $index,
-                        'bullet_line' => $trimmedLine,
-                        'current_section' => $currentSection,
-                        'search_attempts' => $searchAttempts,
-                    ]);
                 }
 
                 continue; // Skip the bullet-only line itself
@@ -1234,15 +1144,6 @@ class ATSParseabilityChecker
                         if (! in_array('projects', $sectionsFound, true)) {
                             $sectionsFound[] = 'projects'; // Track that we found this section
                         }
-                        Log::debug('ATSParseabilityChecker: Projects section detected (second pass)', [
-                            'line' => $trimmedLine,
-                            'pattern' => $pattern,
-                            'index' => $index,
-                            'old_section' => $oldSection,
-                            'new_section' => $currentSection,
-                            'sections_found' => $sectionsFound,
-                            'bullets_by_section' => $bulletsBySection,
-                        ]);
                         break;
                     }
                 }
@@ -1252,12 +1153,6 @@ class ATSParseabilityChecker
 
             // Skip if already processed
             if (in_array($line, $processedLines, true)) {
-                Log::debug('ATSParseabilityChecker: Line already processed (second pass)', [
-                    'line_index' => $index,
-                    'line_content' => substr($line, 0, 50),
-                    'current_section' => $currentSection,
-                    'is_projects' => $currentSection === 'projects',
-                ]);
 
                 continue;
             }
@@ -1274,29 +1169,18 @@ class ATSParseabilityChecker
             // If current line is a bullet WITH content (bullet + text), count it
             if ($isBulletLine) {
                 // If bullet line itself has content (after bullet), count it
-                if (strlen($line) >= 10) {
+                if (strlen($line) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
                     $count++;
                     $processedLines[] = $line;
                     // Track which section this bullet belongs to
                     $bulletsBySection[$currentSection]++;
-
-                    // Log for debugging Projects bullets
-                    Log::debug('ATSParseabilityChecker: Bullet inline detected (second pass)', [
-                        'line_index' => $index,
-                        'line_preview' => substr($line, 0, 50),
-                        'line_length' => strlen($line),
-                        'current_section' => $currentSection,
-                        'is_projects' => $currentSection === 'projects',
-                        'bullets_by_section' => $bulletsBySection,
-                        'total_bullets' => $count,
-                    ]);
 
                     continue;
                 }
             }
 
             // Skip very short lines (likely headers or dates) - but only if not a bullet
-            if (strlen($line) < 10 && ! $isBulletLine) {
+            if (strlen($line) < ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH && ! $isBulletLine) {
                 continue;
             }
 
@@ -1314,7 +1198,7 @@ class ATSParseabilityChecker
 
         // Fallback: check if bullet characters appear anywhere in the line (not just at start)
         // This catches cases where there might be indentation or formatting issues
-        if ($count < 5) {
+        if ($count < ATSParseabilityCheckerConstants::BULLETS_FALLBACK_THRESHOLD) {
             // Try a more permissive pattern: any bullet character in the line
             $bulletChars = ['•', '◦', '▪', '▫', '◘', '◙', '◉', '○', '●', '✓', '✔', '☑', '✅', '→', '⇒', '➜', '➤', '□', '■'];
             $currentSection = 'other'; // Reset for fallback pass
@@ -1354,14 +1238,14 @@ class ATSParseabilityChecker
                         // Additional check: make sure it's not in the middle of a word
                         $charPos = strpos($line, $char);
                         // If bullet is in first 5 characters, it's likely a bullet point
-                        if ($charPos !== false && $charPos < 5) {
+                        if ($charPos !== false && $charPos < ATSParseabilityCheckerConstants::BULLET_MAX_POSITION) {
                             // If line is just a bullet (short), check next lines for content (skip empty lines)
-                            if (strlen($line) < 10) {
+                            if (strlen($line) < ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
                                 $nextLineIndex = $index + 1;
                                 $foundContent = false;
                                 while (isset($lines[$nextLineIndex]) && ! $foundContent) {
                                     $nextLine = trim($lines[$nextLineIndex]);
-                                    if (! empty($nextLine) && strlen($nextLine) >= 10) {
+                                    if (! empty($nextLine) && strlen($nextLine) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
                                         $count++;
                                         $processedLines[] = $nextLine;
                                         $bulletsBySection[$currentSection]++;
@@ -1370,7 +1254,7 @@ class ATSParseabilityChecker
                                     }
                                     $nextLineIndex++;
                                     // Limit search to next 3 lines to avoid going too far
-                                    if ($nextLineIndex > $index + 3) {
+                                    if ($nextLineIndex > $index + ATSParseabilityCheckerConstants::BULLET_LOOKAHEAD_LINES) {
                                         break;
                                     }
                                 }
@@ -1387,7 +1271,7 @@ class ATSParseabilityChecker
             }
 
             // Also check for numbered lists (1. 2. 3. pattern)
-            if ($count < 5) {
+            if ($count < ATSParseabilityCheckerConstants::BULLETS_FALLBACK_THRESHOLD) {
                 $currentSection = 'other'; // Reset for numbered lists check
                 foreach ($lines as $index => $line) {
                     $trimmedLine = trim($line);
@@ -1412,7 +1296,7 @@ class ATSParseabilityChecker
                     }
 
                     $line = $trimmedLine;
-                    if (strlen($line) < 10) {
+                    if (strlen($line) < ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
                         continue;
                     }
 
@@ -1437,7 +1321,7 @@ class ATSParseabilityChecker
         // 1. Short capitalized lines (likely skills/items in a list)
         // 2. Action verb lines (likely experience bullets)
         // 3. Lines that follow a pattern suggesting a list
-        if ($count < 5) {
+        if ($count < ATSParseabilityCheckerConstants::BULLETS_FALLBACK_THRESHOLD) {
             $implicitBulletCount = 0;
             $consecutiveShortLines = 0;
             $actionVerbLines = 0;
@@ -1460,7 +1344,7 @@ class ATSParseabilityChecker
                 // Pattern 1: Short lines that look like list items (skills, etc.)
                 // - 2-4 words, mostly capitalized or title case
                 // - Common in skills sections
-                if ($lineLength >= 10 && $lineLength <= 60 && $wordCount >= 2 && $wordCount <= 4) {
+                if ($lineLength >= ATSParseabilityCheckerConstants::BULLET_SHORT_ITEM_MIN_LENGTH && $lineLength <= ATSParseabilityCheckerConstants::BULLET_SHORT_ITEM_MAX_LENGTH && $wordCount >= ATSParseabilityCheckerConstants::BULLET_SHORT_ITEM_MIN_WORDS && $wordCount <= ATSParseabilityCheckerConstants::BULLET_SHORT_ITEM_MAX_WORDS) {
                     // Check if line is mostly title case or capitalized
                     $titleCaseWords = 0;
                     foreach ($words as $word) {
@@ -1470,7 +1354,7 @@ class ATSParseabilityChecker
                         }
                     }
                     // If 50%+ of words are title case, likely a list item
-                    if ($titleCaseWords >= ($wordCount * 0.5)) {
+                    if ($titleCaseWords >= ($wordCount * ATSParseabilityCheckerConstants::BULLET_SHORT_ITEM_TITLE_CASE_RATIO)) {
                         $implicitBulletCount++;
                         $consecutiveShortLines++;
 
@@ -1489,7 +1373,7 @@ class ATSParseabilityChecker
                     'performed', 'prepared', 'maintained', 'monitored', 'reviewed', 'provided', 'compiled',
                     'filed', 'reconciled', 'posted', 'verified', 'acted', 'tracked', 'identified', 'stayed'];
                 $firstWord = strtolower(explode(' ', $line)[0]);
-                if (in_array($firstWord, $actionVerbs, true) && $lineLength >= 20) {
+                if (in_array($firstWord, $actionVerbs, true) && $lineLength >= ATSParseabilityCheckerConstants::BULLET_IMPLICIT_MIN_LENGTH) {
                     $actionVerbLines++;
 
                     continue;
@@ -1498,12 +1382,12 @@ class ATSParseabilityChecker
 
             // If we found many implicit bullets, add them to count
             // But be conservative - only count if we're confident they're list items
-            if ($implicitBulletCount >= 3 || $actionVerbLines >= 3) {
+            if ($implicitBulletCount >= ATSParseabilityCheckerConstants::BULLETS_IMPLICIT_MIN || $actionVerbLines >= ATSParseabilityCheckerConstants::BULLETS_IMPLICIT_MIN) {
                 // Count implicit bullets but be conservative
                 // Only count if we have a clear pattern (3+ consecutive or 3+ action verbs)
                 $additionalCount = min($implicitBulletCount, $actionVerbLines > 0 ? max($actionVerbLines, $implicitBulletCount) : $implicitBulletCount);
                 // Only add if we're confident (at least 3 items)
-                if ($additionalCount >= 3) {
+                if ($additionalCount >= ATSParseabilityCheckerConstants::BULLETS_IMPLICIT_MIN) {
                     $count += $additionalCount;
                 }
             }
@@ -1525,7 +1409,7 @@ class ATSParseabilityChecker
 
         // Only detect implicit bullets if we have an Experience section but few bullets detected
         // This handles cases where bullets are graphics/images that don't extract
-        if ($hasExperienceSection && $experienceBullets < 5) {
+        if ($hasExperienceSection && $experienceBullets < ATSParseabilityCheckerConstants::BULLETS_EXPERIENCE_IMPLICIT_THRESHOLD) {
             $currentSection = 'other';
 
             $actionVerbs = ['managed', 'develop', 'led', 'created', 'built', 'implemented', 'designed', 'improved',
@@ -1585,7 +1469,7 @@ class ATSParseabilityChecker
                 // Skip section headers, dates, and very short/long lines
                 // Allow longer lines (up to 300 chars) for implicit bullets as they may be full sentences
                 $lineLength = mb_strlen($trimmedLine);
-                if ($lineLength < 20 || $lineLength > 300) {
+                if ($lineLength < ATSParseabilityCheckerConstants::BULLET_IMPLICIT_MIN_LENGTH || $lineLength > ATSParseabilityCheckerConstants::BULLET_IMPLICIT_MAX_LENGTH) {
                     continue;
                 }
 
@@ -1622,7 +1506,7 @@ class ATSParseabilityChecker
                     in_array($baseWordEs, $actionVerbs, true)) {
                     // Additional check: line should not be a job title or company name
                     $isJobTitle = preg_match('/^(Senior|Junior|Lead|Manager|Developer|Engineer|Analyst|Specialist|Coordinator|Director|VP|President|CEO|CTO|Full Stack|Software|Web|Accountant)\s+/i', $trimmedLine) &&
-                                 $lineLength < 80;
+                                 $lineLength < ATSParseabilityCheckerConstants::JOB_TITLE_MAX_LENGTH;
 
                     if (! $isJobTitle && $currentSection === 'experience') {
                         $implicitBulletCount++;
@@ -1678,7 +1562,7 @@ class ATSParseabilityChecker
 
             // Check if this line might be a non-standard bullet (short line followed by content)
             $lineLength = mb_strlen($trimmedLine);
-            if ($lineLength >= 1 && $lineLength <= 3) {
+            if ($lineLength >= 1 && $lineLength <= ATSParseabilityCheckerConstants::BULLET_LINE_MAX_LENGTH) {
                 // Skip if this line was already processed as a bullet in the main detection
                 // We need to check if the line itself or the next line (content) was already processed
                 $wasProcessed = false;
@@ -1691,11 +1575,11 @@ class ATSParseabilityChecker
                 // Also check if the next line (content) was already processed
                 if (! $wasProcessed) {
                     $nextLineIndex = $index + 1;
-                    $lookAheadCheck = 3;
+                    $lookAheadCheck = ATSParseabilityCheckerConstants::BULLET_LOOKAHEAD_LINES;
                     for ($checkIdx = $nextLineIndex; $checkIdx <= $index + $lookAheadCheck && $checkIdx < count($lines); $checkIdx++) {
                         if (isset($lines[$checkIdx])) {
                             $nextCheckLine = trim($lines[$checkIdx]);
-                            if (! empty($nextCheckLine) && mb_strlen($nextCheckLine) >= 10) {
+                            if (! empty($nextCheckLine) && mb_strlen($nextCheckLine) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
                                 if (in_array($nextCheckLine, $processedLines, true)) {
                                     $wasProcessed = true;
                                     break;
@@ -1708,13 +1592,13 @@ class ATSParseabilityChecker
                 // Only count as non-standard if it wasn't processed AND next line has content
                 if (! $wasProcessed) {
                     $nextLineIndex = $index + 1;
-                    $lookAheadLines = 3;
+                    $lookAheadLines = ATSParseabilityCheckerConstants::BULLET_LOOKAHEAD_LINES;
                     $foundContentAhead = false;
 
                     for ($checkIndex = $nextLineIndex; $checkIndex <= $index + $lookAheadLines && $checkIndex < count($lines); $checkIndex++) {
                         if (isset($lines[$checkIndex])) {
                             $checkLine = trim($lines[$checkIndex]);
-                            if (! empty($checkLine) && mb_strlen($checkLine) >= 10) {
+                            if (! empty($checkLine) && mb_strlen($checkLine) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
                                 // Check if it's not a header or date
                                 $isHeaderOrDate = preg_match('/^(PROFESSIONAL|EXPERIENCE|EDUCATION|PROJECTS|SKILLS|SUMMARY|LANGUAGES|CERTIFICATIONS|LEADERSHIP|WORK\s+HISTORY)/i', $trimmedLine) ||
                                                 preg_match('/\d{4}/', $trimmedLine) ||
@@ -1733,21 +1617,10 @@ class ATSParseabilityChecker
             }
         }
 
-        // Debug: Log section distribution
-        Log::debug('ATSParseabilityChecker: Bullet section distribution', [
-            'total' => $count,
-            'experience' => $experienceBullets,
-            'projects' => $projectsBullets,
-            'other' => $otherBullets,
-            'sections_found' => $sectionsFound,
-            'potential_non_standard_bullets' => $potentialNonStandardBullets,
-            'non_standard_by_section' => $nonStandardBulletsBySection,
-        ]);
-
         // Ideal: 12-20 bullet points for experienced candidates
         // Minimum: 8 bullet points for entry-level
         // Experience bullets are more important than projects
-        $isOptimal = $count >= 12 && $experienceBullets >= 8;
+        $isOptimal = $count >= ATSParseabilityCheckerConstants::BULLETS_MIN_OPTIMAL && $experienceBullets >= ATSParseabilityCheckerConstants::BULLETS_EXPERIENCE_MIN;
 
         return [
             'count' => $count,
@@ -1792,7 +1665,7 @@ class ATSParseabilityChecker
         }
 
         // Need at least 3 quantifiable metrics
-        $hasMetrics = $count >= 3;
+        $hasMetrics = $count >= ATSParseabilityCheckerConstants::MIN_METRICS_COUNT;
 
         return [
             'has_metrics' => $hasMetrics,

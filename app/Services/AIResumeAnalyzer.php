@@ -110,10 +110,11 @@ CONTENT QUALITY REQUIREMENTS (penalize heavily if missing):
   * 346 words with only 1 job = -15 points (too thin)
   * Fewer than 12 bullet points total in experience = -10 points
   * Each role should have 3-5 detailed bullets with metrics
-- For mid-level developers (2-3 years):
-  * Should have 400-700 words
-  * Should have 12-20 bullets across all roles
-  * Should show progression/impact with numbers
+- Resume Length & Detail (apply universally):
+  * Less than 300 words = too short, lacks detail
+  * 400-800 words = optimal for most roles
+  * Each role should have 3-5 bullets with specific achievements
+  * Fewer than 10 total bullets across experience = too sparse
 - A resume with good format but no metrics should score 35-50, NOT 70+.
 
 Analyze this resume for ATS compatibility:
@@ -136,7 +137,7 @@ Provide a JSON analysis based on documented ATS parsing behavior from industry r
     "date_issues": ["list date-related issues if any"]
   },
   "keyword_analysis": {
-    "technical_keywords_found": ["Laravel", "React", "AWS"],
+    "relevant_keywords_found": ["Laravel", "React", "AWS"],
     "total_unique_keywords": 15,
     "keyword_density": "appropriate/too_sparse/keyword_stuffing",
     "missing_common_keywords": ["Docker", "CI/CD"],
@@ -179,7 +180,7 @@ Provide a JSON analysis based on documented ATS parsing behavior from industry r
     "Add actual dates (e.g., '2023', 'Jan 2023', '2023-2024') to work experience and education - replace any placeholders like '20XX'"
   ],
   "recommended_improvements": [
-    "Add 5-8 more industry-standard technical keywords",
+    "Add 5-8 more industry-standard relevant keywords",
     "Include LinkedIn profile URL in contact section",
     "Add more quantifiable achievements with numbers",
     "Use stronger action verbs: Architected, Spearheaded, Orchestrated"

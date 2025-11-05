@@ -94,44 +94,8 @@ class ResumeParserService
                 throw new \RuntimeException('Unable to extract text from PDF. The file may be corrupted or contain only images. If using Spatie/pdf-to-text, ensure poppler-utils is installed: apt-get install poppler-utils');
             }
 
-            // Log FULL extracted text BEFORE cleaning for debugging
-            // Save to file for detailed inspection
-            $debugLogPath = storage_path('logs/resume_extraction_'.date('Y-m-d_H-i-s').'.txt');
-            file_put_contents($debugLogPath, "=== RAW EXTRACTED TEXT (BEFORE CLEANING) ===\n\n");
-            file_put_contents($debugLogPath, "Extraction Method: {$extractionMethod}\n", FILE_APPEND);
-            file_put_contents($debugLogPath, $text, FILE_APPEND);
-            file_put_contents($debugLogPath, "\n\n=== METADATA ===\n", FILE_APPEND);
-            file_put_contents($debugLogPath, 'Extraction Method: '.$extractionMethod."\n", FILE_APPEND);
-            file_put_contents($debugLogPath, 'Full text length: '.strlen($text)."\n", FILE_APPEND);
-            if (! empty($pages)) {
-                file_put_contents($debugLogPath, 'Page count: '.count($pages)."\n", FILE_APPEND);
-            }
-            file_put_contents($debugLogPath, "First 2000 chars:\n".substr($text, 0, 2000)."\n", FILE_APPEND);
-
-            Log::info('PDF text extracted (RAW)', [
-                'extraction_method' => $extractionMethod,
-                'debug_log_file' => basename($debugLogPath),
-                'full_text_length' => strlen($text),
-                'page_count' => ! empty($pages) ? count($pages) : 'unknown',
-                'first_2000_chars' => substr($text, 0, 2000),
-            ]);
-
             // Clean and normalize UTF-8 encoding
             $cleanedText = $this->cleanText($text);
-
-            // Log AFTER cleaning
-            file_put_contents($debugLogPath, "\n\n=== CLEANED TEXT (AFTER UTF-8 NORMALIZATION) ===\n\n", FILE_APPEND);
-            file_put_contents($debugLogPath, $cleanedText, FILE_APPEND);
-            file_put_contents($debugLogPath, "\n\n=== CLEANING METADATA ===\n", FILE_APPEND);
-            file_put_contents($debugLogPath, 'Cleaned text length: '.strlen($cleanedText)."\n", FILE_APPEND);
-            file_put_contents($debugLogPath, 'Length difference: '.(strlen($text) - strlen($cleanedText))." chars\n", FILE_APPEND);
-
-            Log::info('PDF text cleaned', [
-                'original_length' => strlen($text),
-                'cleaned_length' => strlen($cleanedText),
-                'length_difference' => strlen($text) - strlen($cleanedText),
-                'first_2000_chars_cleaned' => substr($cleanedText, 0, 2000),
-            ]);
 
             return $cleanedText;
         } catch (\RuntimeException $e) {
@@ -191,10 +155,6 @@ class ResumeParserService
         if (! mb_check_encoding($text, 'UTF-8')) {
             // Try to detect the encoding
             $detectedEncoding = mb_detect_encoding($text, ['UTF-8', 'ISO-8859-1', 'Windows-1252'], true);
-            Log::debug('Encoding detection', [
-                'detected_encoding' => $detectedEncoding,
-                'was_valid_utf8' => false,
-            ]);
             if ($detectedEncoding && $detectedEncoding !== 'UTF-8') {
                 $text = mb_convert_encoding($text, 'UTF-8', $detectedEncoding);
             } else {
@@ -229,14 +189,6 @@ class ResumeParserService
 
         // Ensure it's valid UTF-8 for JSON encoding
         $text = json_decode(json_encode($text), true) ?? $text;
-
-        Log::debug('Text cleaning stats', [
-            'original_length' => $originalLength,
-            'final_length' => strlen($text),
-            'non_printable_chars_removed' => $nonPrintableRemoved,
-            'whitespace_normalized' => $whitespaceRemoved,
-            'total_chars_removed' => $originalLength - strlen($text),
-        ]);
 
         return trim($text);
     }
