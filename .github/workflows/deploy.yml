@@ -104,7 +104,7 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_PATH: ${{ secrets.SSH_PATH }}
         run: |
-          ssh $SSH_USER@$SSH_HOST "set -e && \ 
+          ssh $SSH_USER@$SSH_HOST "set -e && \
             cd $SSH_PATH && \
             echo 'Pulling latest changes...' && \
             git pull origin main && \
