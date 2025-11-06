@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AnalyzeResumeRequest;
+use App\Models\Visitor;
 use App\Services\AIResumeAnalyzer;
 use App\Services\ATSParseabilityChecker;
 use App\Services\ATSScoreValidator;
 use App\Services\ResumeParserService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -25,7 +27,46 @@ class ResumeController extends Controller
      */
     public function index()
     {
-        return Inertia::render('ResumeChecker');
+        // Track visitor
+        $this->trackVisitor('home');
+
+        // Check if user wants to clear session (e.g., "analyze another" button)
+        if (request()->boolean('clear')) {
+            Session::forget('resume_analysis');
+            Session::forget('resume_analysis_timestamp');
+
+            return Inertia::render('ResumeChecker', [
+                'analysis' => null,
+            ]);
+        }
+
+        // Check if there's analysis data in session
+        // Only load if we're preserving from a POST redirect (preserve query param)
+        // OR if it's a refresh (referrer matches current route)
+        $referer = request()->header('Referer');
+        $currentUrl = route('resume-checker');
+        $isRefresh = $referer && str_contains($referer, $currentUrl);
+        $shouldLoadFromSession = request()->boolean('preserve') || $isRefresh;
+
+        $analysis = null;
+        if ($shouldLoadFromSession) {
+            $analysis = Session::get('resume_analysis');
+            $timestamp = Session::get('resume_analysis_timestamp');
+
+            // Check if analysis has expired (60 minutes)
+            if ($analysis && $timestamp) {
+                $expired = (now()->timestamp - $timestamp) > (60 * 60); // 60 minutes
+                if ($expired) {
+                    Session::forget('resume_analysis');
+                    Session::forget('resume_analysis_timestamp');
+                    $analysis = null;
+                }
+            }
+        }
+
+        return Inertia::render('ResumeChecker', [
+            'analysis' => $analysis,
+        ]);
     }
 
     /**
@@ -33,6 +74,9 @@ class ResumeController extends Controller
      */
     public function analyze(AnalyzeResumeRequest $request)
     {
+        // Clear any existing analysis from session when starting new analysis
+        Session::forget('resume_analysis');
+
         $file = $request->file('resume');
         $tempPath = null;
 
@@ -118,9 +162,15 @@ class ResumeController extends Controller
             // Add filename to analysis
             $finalAnalysis['filename'] = $file->getClientOriginalName();
 
-            return Inertia::render('ResumeChecker', [
-                'analysis' => $finalAnalysis,
-            ]);
+            // Store analysis in session (expires in 60 minutes)
+            Session::put('resume_analysis', $finalAnalysis);
+            Session::put('resume_analysis_timestamp', now()->timestamp);
+
+            // Track visitor (after successful analysis)
+            $this->trackVisitor('analyze');
+
+            // Redirect to GET route with preserve flag to avoid POST redirect issues
+            return redirect()->route('resume-checker', ['preserve' => true])->with('success', 'Resume analyzed successfully!');
         } catch (\Exception $e) {
             return back()->withErrors([
                 'resume' => $e->getMessage(),
@@ -130,6 +180,26 @@ class ResumeController extends Controller
             if ($tempPath && Storage::disk('local')->exists($tempPath)) {
                 Storage::disk('local')->delete($tempPath);
             }
+        }
+    }
+
+    /**
+     * Track visitor page visit.
+     */
+    protected function trackVisitor(string $pageType): void
+    {
+        try {
+            Visitor::create([
+                'page_type' => $pageType,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+        } catch (\Exception $e) {
+            // Log error but don't fail the request if tracking fails
+            Log::warning('Failed to track visitor', [
+                'error' => $e->getMessage(),
+                'page_type' => $pageType,
+            ]);
         }
     }
 }

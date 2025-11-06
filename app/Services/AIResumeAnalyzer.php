@@ -46,7 +46,6 @@ class AIResumeAnalyzer
         $maxChars = 8000;
         if (strlen($resumeText) > $maxChars) {
             $resumeText = substr($resumeText, 0, $maxChars).'... [truncated]';
-            Log::info('Resume text truncated for OpenAI analysis', ['original_length' => strlen($resumeText)]);
         }
 
         $prompt = $this->buildPrompt($resumeText);

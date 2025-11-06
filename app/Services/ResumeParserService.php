@@ -43,10 +43,6 @@ class ResumeParserService
             try {
                 $text = Pdf::getText($filePath);
                 $extractionMethod = 'spatie_pdftotext';
-                Log::info('PDF extraction successful using Spatie/pdf-to-text', [
-                    'method' => $extractionMethod,
-                    'text_length' => strlen($text),
-                ]);
             } catch (\Exception $e) {
                 // Spatie failed - log and try fallback
                 Log::warning('Spatie/pdf-to-text extraction failed, trying fallback', [
@@ -77,11 +73,7 @@ class ResumeParserService
                     }
 
                     $extractionMethod = 'smalot_pdfparser';
-                    Log::info('PDF extraction successful using Smalot/PdfParser fallback', [
-                        'method' => $extractionMethod,
-                        'text_length' => strlen($text),
-                        'page_count' => count($pages),
-                    ]);
+
                 } catch (\Exception $e) {
                     Log::error('Both PDF extraction methods failed', [
                         'spatie_error' => 'Spatie/pdf-to-text failed',

@@ -115,7 +115,11 @@ export default function ResumeChecker({ analysis }: Props) {
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
-        router.visit('/resume-checker');
+        // Clear session and navigate to upload page
+        router.visit('/resume-checker?clear=true', {
+            preserveState: false,
+            preserveScroll: false,
+        });
     };
 
     const handleExampleResume = () => {
@@ -148,7 +152,7 @@ export default function ResumeChecker({ analysis }: Props) {
                     <div className="max-w-[1280px] mx-auto px-4 h-full flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Sparkles className="w-5 h-5 text-indigo-600" />
-                            <span className="text-xl font-semibold text-slate-900">ATS Checker</span>
+                            <span className="text-xl font-semibold text-slate-900">Resume Checker</span>
                         </div>
                         <a
                             href="https://github.com/joshu2991/ats-tracker"

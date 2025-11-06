@@ -24,9 +24,11 @@ import {
     Sparkles,
     BarChart3,
     ChevronDown,
+    MessageSquare,
 } from 'lucide-react';
 import { useCountUp } from '../hooks/useCountUp';
 import CircularProgress from './CircularProgress';
+import FeedbackModal from './FeedbackModal';
 import confetti from 'canvas-confetti';
 
 interface Analysis {
@@ -60,6 +62,9 @@ export default function ResumeResultsDashboard({ analysis, onReset }: ResumeResu
         analysis.warnings && analysis.warnings.length > 0 ? 'warnings' : 
         analysis.suggestions && analysis.suggestions.length > 0 ? 'improvements' : null
     );
+
+    // Feedback modal state
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState<boolean>(false);
 
     // Celebrate if score is excellent (70+)
     useEffect(() => {
@@ -566,6 +571,22 @@ export default function ResumeResultsDashboard({ analysis, onReset }: ResumeResu
                             </motion.div>
                         )}
 
+                        {/* Feedback Button */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.6, delay: 0.6 }}
+                            className="pt-6"
+                        >
+                            <button
+                                onClick={() => setIsFeedbackModalOpen(true)}
+                                className="w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                            >
+                                <MessageSquare className="w-5 h-5" />
+                                <span>Share Your Feedback</span>
+                            </button>
+                        </motion.div>
+
                         {/* Footer Note */}
                         <motion.div
                             initial={{ opacity: 0 }}
@@ -849,6 +870,12 @@ export default function ResumeResultsDashboard({ analysis, onReset }: ResumeResu
                     </div>
                 </div>
             </div>
+
+            {/* Feedback Modal */}
+            <FeedbackModal
+                isOpen={isFeedbackModalOpen}
+                onClose={() => setIsFeedbackModalOpen(false)}
+            />
         </div>
     );
 }

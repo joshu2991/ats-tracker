@@ -1134,31 +1134,31 @@ class ATSParseabilityChecker
         string $currentSection,
         array $sectionsFound
     ): array {
-        // Check Experience first
-        $isExperienceSection = false;
-        foreach ($experiencePatterns as $pattern) {
+            // Check Experience first
+            $isExperienceSection = false;
+            foreach ($experiencePatterns as $pattern) {
             if (preg_match($pattern, $line)) {
-                $currentSection = 'experience';
-                $isExperienceSection = true;
-                if (! in_array('experience', $sectionsFound, true)) {
-                    $sectionsFound[] = 'experience';
-                }
-                break;
-            }
-        }
-
-        // Check Projects (only if not Experience)
-        if (! $isExperienceSection) {
-            foreach ($projectsPatterns as $pattern) {
-                if (preg_match($pattern, $line)) {
-                    $currentSection = 'projects';
-                    if (! in_array('projects', $sectionsFound, true)) {
-                        $sectionsFound[] = 'projects';
+                    $currentSection = 'experience';
+                    $isExperienceSection = true;
+                    if (! in_array('experience', $sectionsFound, true)) {
+                        $sectionsFound[] = 'experience';
                     }
                     break;
                 }
             }
-        }
+
+            // Check Projects (only if not Experience)
+            if (! $isExperienceSection) {
+                foreach ($projectsPatterns as $pattern) {
+                if (preg_match($pattern, $line)) {
+                        $currentSection = 'projects';
+                        if (! in_array('projects', $sectionsFound, true)) {
+                            $sectionsFound[] = 'projects';
+                        }
+                        break;
+                    }
+                }
+            }
 
         return [
             'section' => $currentSection,
@@ -1178,50 +1178,50 @@ class ATSParseabilityChecker
             return false;
         }
 
-        // Method 1: Direct character comparison
-        foreach ($bulletChars as $char) {
+                // Method 1: Direct character comparison
+                foreach ($bulletChars as $char) {
             if ($line === $char) {
                 return true;
-            }
-        }
+                    }
+                }
 
-        // Method 2: Regex pattern for bullet with optional whitespace
-        foreach ($bulletChars as $char) {
-            $pattern = '/^[\s]*'.preg_quote($char, '/').'[\s]*$/u';
+                // Method 2: Regex pattern for bullet with optional whitespace
+                    foreach ($bulletChars as $char) {
+                        $pattern = '/^[\s]*'.preg_quote($char, '/').'[\s]*$/u';
             if (preg_match($pattern, $line)) {
                 return true;
-            }
-        }
+                    }
+                }
 
-        // Method 3: Check if line contains any bullet character (fallback)
+                // Method 3: Check if line contains any bullet character (fallback)
         if ($lineLength <= ATSParseabilityCheckerConstants::BULLET_LINE_MAX_LENGTH) {
-            foreach ($bulletChars as $char) {
+                    foreach ($bulletChars as $char) {
                 if (mb_strpos($line, $char) !== false) {
                     return true;
-                }
-            }
-        }
-
-        // Method 4: Pattern-based detection - if line is very short (1-3 chars) and next line has content,
-        // it's likely a bullet on a separate line (common resume formatting pattern)
-        if ($lineLength <= ATSParseabilityCheckerConstants::BULLET_LINE_MAX_LENGTH) {
-            $nextLineIndex = $index + 1;
-            $lookAheadLines = ATSParseabilityCheckerConstants::BULLET_LOOKAHEAD_LINES;
-
-            // Check if any of the next few lines have substantial content
-            for ($checkIndex = $nextLineIndex; $checkIndex <= $index + $lookAheadLines && $checkIndex < count($lines); $checkIndex++) {
-                if (isset($lines[$checkIndex])) {
-                    $checkLine = trim($lines[$checkIndex]);
-                    // If line has substantial content (10+ chars), treat current line as bullet
-                    if (! empty($checkLine) && mb_strlen($checkLine) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
-                        // Additional check: current line should not be a header or date
-                        if (! $this->isLineHeaderOrDate($line)) {
-                            return true;
                         }
                     }
                 }
-            }
-        }
+
+                // Method 4: Pattern-based detection - if line is very short (1-3 chars) and next line has content,
+                // it's likely a bullet on a separate line (common resume formatting pattern)
+        if ($lineLength <= ATSParseabilityCheckerConstants::BULLET_LINE_MAX_LENGTH) {
+                    $nextLineIndex = $index + 1;
+                    $lookAheadLines = ATSParseabilityCheckerConstants::BULLET_LOOKAHEAD_LINES;
+
+                    // Check if any of the next few lines have substantial content
+                    for ($checkIndex = $nextLineIndex; $checkIndex <= $index + $lookAheadLines && $checkIndex < count($lines); $checkIndex++) {
+                        if (isset($lines[$checkIndex])) {
+                            $checkLine = trim($lines[$checkIndex]);
+                            // If line has substantial content (10+ chars), treat current line as bullet
+                            if (! empty($checkLine) && mb_strlen($checkLine) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
+                                // Additional check: current line should not be a header or date
+                        if (! $this->isLineHeaderOrDate($line)) {
+                            return true;
+                                }
+                            }
+                        }
+                    }
+                }
 
         return false;
     }
@@ -1246,23 +1246,23 @@ class ATSParseabilityChecker
     protected function findNextContentLine(array $lines, int $startIndex, array $processedLines): array
     {
         $nextLineIndex = $startIndex + 1;
-        $foundContent = false;
+                $foundContent = false;
 
-        while (isset($lines[$nextLineIndex]) && ! $foundContent) {
-            $nextLine = trim($lines[$nextLineIndex]);
+                while (isset($lines[$nextLineIndex]) && ! $foundContent) {
+                    $nextLine = trim($lines[$nextLineIndex]);
 
-            // If next line has content, count it as a bullet point
-            if (! empty($nextLine) && mb_strlen($nextLine) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
-                // Skip if next line is already processed
-                if (! in_array($nextLine, $processedLines, true)) {
+                    // If next line has content, count it as a bullet point
+                    if (! empty($nextLine) && mb_strlen($nextLine) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
+                        // Skip if next line is already processed
+                        if (! in_array($nextLine, $processedLines, true)) {
                     return [
                         'found' => true,
                         'line' => $nextLine,
                         'index' => $nextLineIndex,
                     ];
-                }
-            }
-            $nextLineIndex++;
+                        }
+                    }
+                    $nextLineIndex++;
         }
 
         return [
@@ -1452,13 +1452,13 @@ class ATSParseabilityChecker
         $currentSection = 'other';
 
         // Remove non-standard bullet from list for this pass (use standard set)
-        $bulletChars = ['•', '◦', '▪', '▫', '◘', '◙', '◉', '○', '●', '✓', '✔', '☑', '✅', '→', '⇒', '➜', '➤', '□', '■'];
+            $bulletChars = ['•', '◦', '▪', '▫', '◘', '◙', '◉', '○', '●', '✓', '✔', '☑', '✅', '→', '⇒', '➜', '➤', '□', '■'];
 
-        foreach ($lines as $index => $line) {
-            $trimmedLine = trim($line);
-            if (empty($trimmedLine)) {
-                continue;
-            }
+            foreach ($lines as $index => $line) {
+                $trimmedLine = trim($line);
+                if (empty($trimmedLine)) {
+                    continue;
+                }
 
             // Update section tracking
             $sectionResult = $this->updateSectionTracking(
@@ -1471,48 +1471,48 @@ class ATSParseabilityChecker
             $currentSection = $sectionResult['section'];
             $sectionsFound = $sectionResult['sections_found'];
 
-            // Skip if already processed
+                // Skip if already processed
             if (in_array($trimmedLine, $processedLines, true)) {
-                continue;
-            }
+                    continue;
+                }
 
-            // Check if line contains a bullet character
-            foreach ($bulletChars as $char) {
+                // Check if line contains a bullet character
+                foreach ($bulletChars as $char) {
                 if (str_contains($trimmedLine, $char)) {
-                    // Additional check: make sure it's not in the middle of a word
+                        // Additional check: make sure it's not in the middle of a word
                     $charPos = strpos($trimmedLine, $char);
-                    // If bullet is in first 5 characters, it's likely a bullet point
-                    if ($charPos !== false && $charPos < ATSParseabilityCheckerConstants::BULLET_MAX_POSITION) {
+                        // If bullet is in first 5 characters, it's likely a bullet point
+                        if ($charPos !== false && $charPos < ATSParseabilityCheckerConstants::BULLET_MAX_POSITION) {
                         // If line is just a bullet (short), check next lines for content
                         if (strlen($trimmedLine) < ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
-                            $nextLineIndex = $index + 1;
-                            $foundContent = false;
-                            while (isset($lines[$nextLineIndex]) && ! $foundContent) {
-                                $nextLine = trim($lines[$nextLineIndex]);
-                                if (! empty($nextLine) && strlen($nextLine) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
-                                    $count++;
-                                    $processedLines[] = $nextLine;
-                                    $bulletsBySection[$currentSection]++;
-                                    $foundContent = true;
-                                    break 2; // Break both loops
+                                $nextLineIndex = $index + 1;
+                                $foundContent = false;
+                                while (isset($lines[$nextLineIndex]) && ! $foundContent) {
+                                    $nextLine = trim($lines[$nextLineIndex]);
+                                    if (! empty($nextLine) && strlen($nextLine) >= ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
+                                        $count++;
+                                        $processedLines[] = $nextLine;
+                                        $bulletsBySection[$currentSection]++;
+                                        $foundContent = true;
+                                        break 2; // Break both loops
+                                    }
+                                    $nextLineIndex++;
+                                    // Limit search to next 3 lines to avoid going too far
+                                    if ($nextLineIndex > $index + ATSParseabilityCheckerConstants::BULLET_LOOKAHEAD_LINES) {
+                                        break;
+                                    }
                                 }
-                                $nextLineIndex++;
-                                // Limit search to next 3 lines to avoid going too far
-                                if ($nextLineIndex > $index + ATSParseabilityCheckerConstants::BULLET_LOOKAHEAD_LINES) {
-                                    break;
-                                }
-                            }
-                        } else {
-                            // Line has bullet and content
-                            $count++;
+                            } else {
+                                // Line has bullet and content
+                                $count++;
                             $processedLines[] = $trimmedLine;
-                            $bulletsBySection[$currentSection]++;
-                            break; // Count each line only once
+                                $bulletsBySection[$currentSection]++;
+                                break; // Count each line only once
+                            }
                         }
                     }
                 }
             }
-        }
 
         return [
             'count' => $count,
@@ -1541,11 +1541,11 @@ class ATSParseabilityChecker
         $bulletsBySection = ['experience' => 0, 'projects' => 0, 'other' => 0];
         $currentSection = 'other';
 
-        foreach ($lines as $index => $line) {
-            $trimmedLine = trim($line);
-            if (empty($trimmedLine)) {
-                continue;
-            }
+                foreach ($lines as $index => $line) {
+                    $trimmedLine = trim($line);
+                    if (empty($trimmedLine)) {
+                        continue;
+                    }
 
             // Update section tracking
             $sectionResult = $this->updateSectionTracking(
@@ -1558,21 +1558,21 @@ class ATSParseabilityChecker
             $currentSection = $sectionResult['section'];
 
             if (strlen($trimmedLine) < ATSParseabilityCheckerConstants::BULLET_CONTENT_MIN_LENGTH) {
-                continue;
-            }
+                        continue;
+                    }
 
-            // Skip if already processed
+                    // Skip if already processed
             if (in_array($trimmedLine, $processedLines, true)) {
-                continue;
-            }
+                        continue;
+                    }
 
-            // Check for numbered list pattern: starts with number followed by period/parenthesis/dash
+                    // Check for numbered list pattern: starts with number followed by period/parenthesis/dash
             if (preg_match('/^\d+[.)-]\s+/', $trimmedLine)) {
-                $count++;
+                        $count++;
                 $processedLines[] = $trimmedLine;
-                $bulletsBySection[$currentSection]++;
-            }
-        }
+                        $bulletsBySection[$currentSection]++;
+                    }
+                }
 
         return [
             'count' => $count,
@@ -1590,65 +1590,65 @@ class ATSParseabilityChecker
      */
     protected function detectImplicitBullets(array $lines, array $processedLines): array
     {
-        $implicitBulletCount = 0;
-        $consecutiveShortLines = 0;
-        $actionVerbLines = 0;
+            $implicitBulletCount = 0;
+            $consecutiveShortLines = 0;
+            $actionVerbLines = 0;
         $actionVerbs = $this->getActionVerbsList();
 
-        foreach ($lines as $index => $line) {
-            $line = trim($line);
-            if (empty($line)) {
-                continue;
-            }
+            foreach ($lines as $index => $line) {
+                $line = trim($line);
+                if (empty($line)) {
+                    continue;
+                }
 
-            // Skip if already processed
-            if (in_array($line, $processedLines, true)) {
-                continue;
-            }
+                // Skip if already processed
+                if (in_array($line, $processedLines, true)) {
+                    continue;
+                }
 
-            $lineLength = strlen($line);
-            $words = explode(' ', $line);
-            $wordCount = count($words);
+                $lineLength = strlen($line);
+                $words = explode(' ', $line);
+                $wordCount = count($words);
 
-            // Pattern 1: Short lines that look like list items (skills, etc.)
+                // Pattern 1: Short lines that look like list items (skills, etc.)
             if ($lineLength >= ATSParseabilityCheckerConstants::BULLET_SHORT_ITEM_MIN_LENGTH &&
                 $lineLength <= ATSParseabilityCheckerConstants::BULLET_SHORT_ITEM_MAX_LENGTH &&
                 $wordCount >= ATSParseabilityCheckerConstants::BULLET_SHORT_ITEM_MIN_WORDS &&
                 $wordCount <= ATSParseabilityCheckerConstants::BULLET_SHORT_ITEM_MAX_WORDS) {
-                // Check if line is mostly title case or capitalized
-                $titleCaseWords = 0;
-                foreach ($words as $word) {
-                    $cleanWord = preg_replace('/[^a-zA-Z]/', '', $word);
-                    if (! empty($cleanWord) && (ucfirst(strtolower($cleanWord)) === $cleanWord || ctype_upper($cleanWord))) {
-                        $titleCaseWords++;
+                    // Check if line is mostly title case or capitalized
+                    $titleCaseWords = 0;
+                    foreach ($words as $word) {
+                        $cleanWord = preg_replace('/[^a-zA-Z]/', '', $word);
+                        if (! empty($cleanWord) && (ucfirst(strtolower($cleanWord)) === $cleanWord || ctype_upper($cleanWord))) {
+                            $titleCaseWords++;
+                        }
+                    }
+                    // If 50%+ of words are title case, likely a list item
+                    if ($titleCaseWords >= ($wordCount * ATSParseabilityCheckerConstants::BULLET_SHORT_ITEM_TITLE_CASE_RATIO)) {
+                        $implicitBulletCount++;
+                        $consecutiveShortLines++;
+
+                        continue;
                     }
                 }
-                // If 50%+ of words are title case, likely a list item
-                if ($titleCaseWords >= ($wordCount * ATSParseabilityCheckerConstants::BULLET_SHORT_ITEM_TITLE_CASE_RATIO)) {
-                    $implicitBulletCount++;
-                    $consecutiveShortLines++;
+
+                // Pattern 2: Action verb lines (likely experience bullets)
+                $firstWord = strtolower(explode(' ', $line)[0]);
+                if (in_array($firstWord, $actionVerbs, true) && $lineLength >= ATSParseabilityCheckerConstants::BULLET_IMPLICIT_MIN_LENGTH) {
+                    $actionVerbLines++;
 
                     continue;
                 }
             }
 
-            // Pattern 2: Action verb lines (likely experience bullets)
-            $firstWord = strtolower(explode(' ', $line)[0]);
-            if (in_array($firstWord, $actionVerbs, true) && $lineLength >= ATSParseabilityCheckerConstants::BULLET_IMPLICIT_MIN_LENGTH) {
-                $actionVerbLines++;
-
-                continue;
-            }
-        }
-
-        // If we found many implicit bullets, add them to count
-        // But be conservative - only count if we're confident they're list items
+            // If we found many implicit bullets, add them to count
+            // But be conservative - only count if we're confident they're list items
         $additionalCount = 0;
-        if ($implicitBulletCount >= ATSParseabilityCheckerConstants::BULLETS_IMPLICIT_MIN || $actionVerbLines >= ATSParseabilityCheckerConstants::BULLETS_IMPLICIT_MIN) {
-            // Count implicit bullets but be conservative
-            $additionalCount = min($implicitBulletCount, $actionVerbLines > 0 ? max($actionVerbLines, $implicitBulletCount) : $implicitBulletCount);
-            // Only add if we're confident (at least 3 items)
-            if ($additionalCount >= ATSParseabilityCheckerConstants::BULLETS_IMPLICIT_MIN) {
+            if ($implicitBulletCount >= ATSParseabilityCheckerConstants::BULLETS_IMPLICIT_MIN || $actionVerbLines >= ATSParseabilityCheckerConstants::BULLETS_IMPLICIT_MIN) {
+                // Count implicit bullets but be conservative
+                $additionalCount = min($implicitBulletCount, $actionVerbLines > 0 ? max($actionVerbLines, $implicitBulletCount) : $implicitBulletCount);
+                // Only add if we're confident (at least 3 items)
+                if ($additionalCount >= ATSParseabilityCheckerConstants::BULLETS_IMPLICIT_MIN) {
                 // Don't add to count here - this is just for detection, not counting
                 // The actual counting happens in the main method
             }
@@ -1677,76 +1677,76 @@ class ATSParseabilityChecker
         array $bulletsBySection
     ): array {
         $implicitBulletCount = 0;
-        $currentSection = 'other';
+            $currentSection = 'other';
         $actionVerbs = $this->getExtendedActionVerbsList();
 
-        foreach ($lines as $index => $line) {
-            $trimmedLine = trim($line);
-            if (empty($trimmedLine)) {
-                continue;
-            }
+            foreach ($lines as $index => $line) {
+                $trimmedLine = trim($line);
+                if (empty($trimmedLine)) {
+                    continue;
+                }
 
             // Update section tracking
-            $isExperienceHeader = false;
-            foreach ($experiencePatterns as $pattern) {
-                if (preg_match($pattern, $trimmedLine)) {
-                    $currentSection = 'experience';
-                    $isExperienceHeader = true;
-                    break;
-                }
-            }
-
-            if (! $isExperienceHeader) {
-                foreach ($projectsPatterns as $pattern) {
+                $isExperienceHeader = false;
+                foreach ($experiencePatterns as $pattern) {
                     if (preg_match($pattern, $trimmedLine)) {
-                        $currentSection = 'projects';
+                        $currentSection = 'experience';
+                        $isExperienceHeader = true;
                         break;
                     }
                 }
-            }
 
-            // Skip section headers, dates, and very short/long lines
-            $lineLength = mb_strlen($trimmedLine);
-            if ($lineLength < ATSParseabilityCheckerConstants::BULLET_IMPLICIT_MIN_LENGTH || $lineLength > ATSParseabilityCheckerConstants::BULLET_IMPLICIT_MAX_LENGTH) {
-                continue;
-            }
+                if (! $isExperienceHeader) {
+                    foreach ($projectsPatterns as $pattern) {
+                        if (preg_match($pattern, $trimmedLine)) {
+                            $currentSection = 'projects';
+                            break;
+                        }
+                    }
+                }
 
-            // Skip if already processed as a bullet
-            if (in_array($trimmedLine, $processedLines, true)) {
-                continue;
-            }
+                // Skip section headers, dates, and very short/long lines
+                $lineLength = mb_strlen($trimmedLine);
+                if ($lineLength < ATSParseabilityCheckerConstants::BULLET_IMPLICIT_MIN_LENGTH || $lineLength > ATSParseabilityCheckerConstants::BULLET_IMPLICIT_MAX_LENGTH) {
+                    continue;
+                }
 
-            // Skip if it's a header, date, or company name
+                // Skip if already processed as a bullet
+                if (in_array($trimmedLine, $processedLines, true)) {
+                    continue;
+                }
+
+                // Skip if it's a header, date, or company name
             if ($this->isLineHeaderDateOrCompany($trimmedLine)) {
-                continue;
-            }
+                    continue;
+                }
 
-            // Check if line starts with an action verb (likely a bullet point)
-            $firstWord = strtolower(explode(' ', $trimmedLine)[0]);
-            $firstWord = preg_replace('/[^a-z]/', '', $firstWord); // Remove punctuation
+                // Check if line starts with an action verb (likely a bullet point)
+                $firstWord = strtolower(explode(' ', $trimmedLine)[0]);
+                $firstWord = preg_replace('/[^a-z]/', '', $firstWord); // Remove punctuation
 
-            // Also check for third person singular forms (Prepares -> prepare, Executes -> execute, Processes -> process)
-            $baseWord = rtrim($firstWord, 's');
-            $baseWordEs = rtrim($firstWord, 'es'); // For processes -> process
+                // Also check for third person singular forms (Prepares -> prepare, Executes -> execute, Processes -> process)
+                $baseWord = rtrim($firstWord, 's');
+                $baseWordEs = rtrim($firstWord, 'es'); // For processes -> process
 
-            if (in_array($firstWord, $actionVerbs, true) ||
-                in_array($baseWord, $actionVerbs, true) ||
-                in_array($baseWordEs, $actionVerbs, true)) {
-                // Additional check: line should not be a job title or company name
-                $isJobTitle = preg_match('/^(Senior|Junior|Lead|Manager|Developer|Engineer|Analyst|Specialist|Coordinator|Director|VP|President|CEO|CTO|Full Stack|Software|Web|Accountant)\s+/i', $trimmedLine) &&
-                             $lineLength < ATSParseabilityCheckerConstants::JOB_TITLE_MAX_LENGTH;
+                if (in_array($firstWord, $actionVerbs, true) ||
+                    in_array($baseWord, $actionVerbs, true) ||
+                    in_array($baseWordEs, $actionVerbs, true)) {
+                    // Additional check: line should not be a job title or company name
+                    $isJobTitle = preg_match('/^(Senior|Junior|Lead|Manager|Developer|Engineer|Analyst|Specialist|Coordinator|Director|VP|President|CEO|CTO|Full Stack|Software|Web|Accountant)\s+/i', $trimmedLine) &&
+                                 $lineLength < ATSParseabilityCheckerConstants::JOB_TITLE_MAX_LENGTH;
 
-                if (! $isJobTitle && $currentSection === 'experience') {
-                    $implicitBulletCount++;
+                    if (! $isJobTitle && $currentSection === 'experience') {
+                        $implicitBulletCount++;
 
-                    // Also add to processed lines to avoid double counting
-                    if (! in_array($trimmedLine, $processedLines, true)) {
-                        $processedLines[] = $trimmedLine;
-                        $bulletsBySection[$currentSection]++;
+                        // Also add to processed lines to avoid double counting
+                        if (! in_array($trimmedLine, $processedLines, true)) {
+                            $processedLines[] = $trimmedLine;
+                            $bulletsBySection[$currentSection]++;
+                        }
                     }
                 }
             }
-        }
 
         return [
             'count' => $implicitBulletCount,
