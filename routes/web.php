@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\FeedbackController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ResumeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -31,3 +32,5 @@ Route::post('/resume/analyze', [ResumeController::class, 'analyze'])
 Route::post('/feedback', [FeedbackController::class, 'store'])
     ->middleware('throttle:feedback') // Custom rate limiter with custom response
     ->name('feedback.store');
+
+Route::get('/health', [HealthController::class, 'index'])->name('health');
