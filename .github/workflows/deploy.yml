@@ -1,10 +1,7 @@
 name: deploy
 
 on:
-  workflow_run:
-    workflows: ["tests"]
-    types:
-      - completed
+  push:
     branches:
       - main
   workflow_dispatch:
