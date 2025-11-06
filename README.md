@@ -1,6 +1,8 @@
-# Resume ATS Checker
+# ATS Tracker
 
 A modern, AI-powered web application that analyzes resumes for ATS (Applicant Tracking System) compatibility. Upload your resume in PDF or DOCX format and receive comprehensive, actionable feedback on format, keywords, contact information, content quality, and overall ATS readiness.
+
+🔗 **Live Demo**: [https://atstracker.northcodelab.com](https://atstracker.northcodelab.com)
 
 ## Features
 
@@ -79,7 +81,7 @@ The application uses OpenAI GPT-4o-mini to provide intelligent analysis:
 
 ```bash
 git clone <repository-url>
-cd resume-checker
+cd ats-tracker
 ```
 
 ### 2. Install PHP Dependencies
@@ -213,7 +215,7 @@ The application uses a two-tier analysis approach:
 ## Project Structure
 
 ```
-resume-checker/
+ats-tracker/
 ├── app/
 │   ├── Http/
 │   │   ├── Controllers/

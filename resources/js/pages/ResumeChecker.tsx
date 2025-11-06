@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import AnalysisLoadingModal from '../components/AnalysisLoadingModal';
 import ResumeResultsDashboard from '../components/ResumeResultsDashboard';
+import ToastContainer, { useToast } from '../components/ToastContainer';
 
 interface Analysis {
     filename?: string;
@@ -46,6 +47,7 @@ export default function ResumeChecker({ analysis }: Props) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [dragActive, setDragActive] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const { showToast, removeToast, toasts } = useToast();
 
     const { data, setData, post, processing, errors, reset } = useForm({
         resume: null as File | null,
@@ -80,13 +82,13 @@ export default function ResumeChecker({ analysis }: Props) {
         const isValidType = validTypes.includes(file.type) || validExtensions.includes(fileExtension);
 
         if (!isValidType) {
-            alert('Please upload a PDF or DOCX file.');
+            showToast('Please upload a PDF or DOCX file.', 'error');
             return;
         }
 
         // Validate file size (5MB max)
         if (file.size > 5 * 1024 * 1024) {
-            alert('File size must be less than 5MB.');
+            showToast('File size must be less than 5MB.', 'error');
             return;
         }
 
@@ -133,8 +135,9 @@ export default function ResumeChecker({ analysis }: Props) {
     if (analysis && analysis.overall_score !== undefined) {
         return (
             <>
-                <Head title="Resume ATS Checker - Results" />
+                <Head title="ATS Tracker - Analysis Results" />
                 <AnalysisLoadingModal isOpen={processing} />
+                <ToastContainer toasts={toasts} onRemove={removeToast} />
                 <ResumeResultsDashboard analysis={analysis} onReset={handleReset} />
             </>
         );
@@ -143,8 +146,9 @@ export default function ResumeChecker({ analysis }: Props) {
     // Landing page (before upload)
     return (
         <>
-            <Head title="Resume ATS Checker" />
+            <Head title="ATS Tracker - Resume ATS Compatibility Checker" />
             <AnalysisLoadingModal isOpen={processing} />
+            <ToastContainer toasts={toasts} onRemove={removeToast} />
 
             <div className="min-h-screen bg-white">
                 {/* Navigation Bar */}
@@ -152,7 +156,7 @@ export default function ResumeChecker({ analysis }: Props) {
                     <div className="max-w-[1280px] mx-auto px-4 h-full flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Sparkles className="w-5 h-5 text-indigo-600" />
-                            <span className="text-xl font-semibold text-slate-900">Resume Checker</span>
+                            <span className="text-xl font-semibold text-slate-900">ATS Tracker</span>
                         </div>
                         <a
                             href="https://github.com/joshu2991/ats-tracker"

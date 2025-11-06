@@ -17,7 +17,7 @@ export default function MethodNotAllowed({ status = 405 }: Props) {
                     <div className="max-w-[1280px] mx-auto px-4 h-full flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Sparkles className="w-5 h-5 text-indigo-600" />
-                            <span className="text-xl font-semibold text-slate-900">Resume Checker</span>
+                            <span className="text-xl font-semibold text-slate-900">ATS Tracker</span>
                         </div>
                         <a
                             href="https://github.com/joshu2991/ats-tracker"
@@ -82,7 +82,7 @@ export default function MethodNotAllowed({ status = 405 }: Props) {
                                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 hover:-translate-y-0.5 transition-all duration-200 shadow-[0_4px_6px_rgba(79,70,229,0.3)]"
                             >
                                 <Home className="w-4 h-4" />
-                                Go to Resume Checker
+                                Go to ATS Tracker
                             </Link>
                         </motion.div>
 
