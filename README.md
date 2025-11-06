@@ -26,6 +26,7 @@ A modern, AI-powered web application that analyzes resumes for ATS (Applicant Tr
 - **Actionable Suggestions**: Prioritized recommendations with impact estimates
 - **User Feedback System**: Submit ratings and feedback to improve the service
 - **Security**: Rate limiting, security headers, and content-based file validation
+- **SEO Optimized**: Comprehensive SEO with structured data, Open Graph, Twitter Cards, and dynamic sitemap
 - **Modern UI**: Built with React 19, TypeScript, and Tailwind CSS v4
 - **Real-time Analysis**: Fast, responsive analysis with progress indicators
 
@@ -184,6 +185,16 @@ The application implements IP-based rate limiting:
 - **Feedback Submission**: 5 submissions per hour per IP
 
 These limits can be adjusted in `app/Providers/AppServiceProvider.php`.
+
+### SEO Configuration (Optional)
+
+The application includes comprehensive SEO features:
+- **Structured Data**: JSON-LD schemas (Organization, WebSite, WebPage)
+- **Social Sharing**: Open Graph and Twitter Card meta tags
+- **Dynamic Sitemap**: Auto-generated XML sitemap at `/sitemap.xml`
+- **Meta Tags**: Configurable title, description, and keywords per page
+
+All SEO settings are configurable via `config/seo.php` and environment variables. See `.env.example` for available SEO configuration options.
 
 ## Usage
 
