@@ -8,6 +8,7 @@ use App\Services\AIResumeAnalyzer;
 use App\Services\ATSParseabilityChecker;
 use App\Services\ATSScoreValidator;
 use App\Services\ResumeParserService;
+use App\Services\SEOService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
@@ -19,7 +20,8 @@ class ResumeController extends Controller
         protected ResumeParserService $parser,
         protected ATSParseabilityChecker $parseabilityChecker,
         protected AIResumeAnalyzer $aiAnalyzer,
-        protected ATSScoreValidator $scoreValidator
+        protected ATSScoreValidator $scoreValidator,
+        protected SEOService $seoService
     ) {}
 
     /**
@@ -64,8 +66,12 @@ class ResumeController extends Controller
             }
         }
 
+        // Generate page-specific SEO data
+        $seoData = $this->seoService->forPage('resume-checker');
+
         return Inertia::render('ResumeChecker', [
             'analysis' => $analysis,
+            'seo' => $seoData->toArray(),
         ]);
     }
 

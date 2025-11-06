@@ -1,6 +1,7 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { Sparkles, Github, Home, AlertCircle } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 
 interface Props {
     status?: number;
@@ -8,11 +9,11 @@ interface Props {
 }
 
 export default function Error({ status = 500, message }: Props) {
-    const { github_url } = usePage<{ github_url?: string }>().props;
+    const { github_url, seo } = usePage<{ github_url?: string; seo?: any }>().props;
 
     return (
         <>
-            <Head title={`${status} - Error`} />
+            {seo && <SEOHead {...seo} />}
             
             <div className="min-h-screen bg-white">
                 {/* Navigation Bar */}

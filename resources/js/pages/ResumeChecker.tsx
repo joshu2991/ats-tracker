@@ -1,4 +1,4 @@
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import AnalysisLoadingModal from '../components/AnalysisLoadingModal';
 import ResumeResultsDashboard from '../components/ResumeResultsDashboard';
+import SEOHead from '../components/SEOHead';
 import ToastContainer, { useToast } from '../components/ToastContainer';
 
 interface Analysis {
@@ -49,7 +50,7 @@ export default function ResumeChecker({ analysis }: Props) {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const { showToast, removeToast, toasts } = useToast();
     const rateLimitToastShown = useRef<boolean>(false); // Track if we've shown rate limit toast
-    const { github_url } = usePage<{ github_url?: string }>().props;
+    const { github_url, seo } = usePage<{ github_url?: string; seo?: any }>().props;
     const { data, setData, post, processing, errors, reset } = useForm({
         resume: null as File | null,
     });
@@ -156,7 +157,7 @@ export default function ResumeChecker({ analysis }: Props) {
     if (analysis && analysis.overall_score !== undefined) {
         return (
             <>
-                <Head title="ATS Tracker - Analysis Results" />
+                {seo && <SEOHead {...seo} />}
                 <AnalysisLoadingModal isOpen={processing} />
                 <ToastContainer toasts={toasts} onRemove={removeToast} />
                 <ResumeResultsDashboard analysis={analysis} onReset={handleReset} />
@@ -167,7 +168,7 @@ export default function ResumeChecker({ analysis }: Props) {
     // Landing page (before upload)
     return (
         <>
-            <Head title="ATS Tracker - Resume ATS Compatibility Checker" />
+            {seo && <SEOHead {...seo} />}
             <AnalysisLoadingModal isOpen={processing} />
             <ToastContainer toasts={toasts} onRemove={removeToast} />
 

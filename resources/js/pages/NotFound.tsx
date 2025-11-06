@@ -1,13 +1,14 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { Sparkles, Github, Home, FileSearch, AlertCircle } from 'lucide-react';
+import SEOHead from '../components/SEOHead';
 
 export default function NotFound() {
-    const { github_url } = usePage<{ github_url?: string }>().props;
+    const { github_url, seo } = usePage<{ github_url?: string; seo?: any }>().props;
 
     return (
         <>
-            <Head title="404 - Page Not Found" />
+            {seo && <SEOHead {...seo} />}
             
             <div className="min-h-screen bg-white">
                 {/* Navigation Bar */}

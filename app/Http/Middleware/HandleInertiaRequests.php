@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\SEOService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -16,6 +17,10 @@ class HandleInertiaRequests extends Middleware
      * @var string
      */
     protected $rootView = 'app';
+
+    public function __construct(
+        protected SEOService $seoService
+    ) {}
 
     /**
      * Determines the current asset version.
@@ -38,6 +43,12 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        // Get current route name or default to 'home'
+        $routeName = $request->route()?->getName() ?? 'home';
+
+        // Generate SEO data for current page
+        $seoData = $this->seoService->forPage($routeName);
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -46,6 +57,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'seo' => $seoData->toArray(),
         ];
     }
 }
