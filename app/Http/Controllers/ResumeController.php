@@ -5,11 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\AnalyzeResumeRequest;
 use App\Services\AIResumeAnalyzer;
 use App\Services\ATSParseabilityChecker;
-use App\Services\ATSScorerService;
 use App\Services\ATSScoreValidator;
-use App\Services\KeywordAnalyzerService;
 use App\Services\ResumeParserService;
-use App\Services\SectionDetectorService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -18,9 +15,6 @@ class ResumeController extends Controller
 {
     public function __construct(
         protected ResumeParserService $parser,
-        protected SectionDetectorService $sectionDetector,
-        protected ATSScorerService $scorer,
-        protected KeywordAnalyzerService $keywordAnalyzer,
         protected ATSParseabilityChecker $parseabilityChecker,
         protected AIResumeAnalyzer $aiAnalyzer,
         protected ATSScoreValidator $scoreValidator

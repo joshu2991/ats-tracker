@@ -2,6 +2,13 @@
 
 namespace App\Services;
 
+/**
+ * Legacy Keyword Analyzer Service
+ *
+ * NOTE: This service is legacy and NOT used in the actual application flow.
+ * It is kept for backward compatibility with existing tests only.
+ * The current application uses AIResumeAnalyzer for keyword analysis.
+ */
 class KeywordAnalyzerService
 {
     /**
@@ -77,4 +84,3 @@ class KeywordAnalyzerService
         };
     }
 }
-

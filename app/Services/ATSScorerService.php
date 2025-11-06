@@ -2,6 +2,13 @@
 
 namespace App\Services;
 
+/**
+ * Legacy ATS Scorer Service
+ *
+ * NOTE: This service is legacy and NOT used in the actual application flow.
+ * It is kept for backward compatibility with existing tests only.
+ * The current application uses ATSParseabilityChecker + AIResumeAnalyzer + ATSScoreValidator.
+ */
 class ATSScorerService
 {
     /**

@@ -225,10 +225,10 @@ resume-checker/
 │       ├── ATSParseabilityChecker.php    # Rule-based hard checks
 │       ├── ATSParseabilityCheckerConstants.php  # Scoring thresholds & constants
 │       ├── ATSScoreValidator.php         # Score validation & combination
-│       ├── ATSScorerService.php          # Legacy scoring (still used)
-│       ├── KeywordAnalyzerService.php    # Technical keyword detection
+│       ├── ATSScorerService.php          # Legacy scoring (test-only, not used in app)
+│       ├── KeywordAnalyzerService.php    # Legacy keyword detection (test-only, not used in app)
 │       ├── ResumeParserService.php       # PDF/DOCX text extraction
-│       └── SectionDetectorService.php    # Section & contact detection
+│       └── SectionDetectorService.php    # Legacy section detection (test-only, not used in app)
 ├── resources/
 │   └── js/
 │       ├── pages/
@@ -272,13 +272,12 @@ Validates and combines results from parseability checks and AI analysis. Applies
 ### ResumeParserService
 Extracts text from PDF and DOCX files. Uses multiple parsers with fallback mechanisms to ensure maximum compatibility.
 
-### SectionDetectorService
-Detects resume sections and contact information using regex patterns:
-- Sections: Experience, Education, Skills
-- Contact: Email, Phone, LinkedIn, GitHub
+### Legacy Services (Test-Only)
+**Note**: The following services are legacy and not used in the actual application flow. They are kept for backward compatibility with existing tests:
 
-### KeywordAnalyzerService
-Analyzes technical keywords (50+ keywords including languages, frameworks, tools, databases) and calculates keyword score.
+- **SectionDetectorService**: Legacy section and contact detection (replaced by `ATSParseabilityChecker`)
+- **KeywordAnalyzerService**: Legacy keyword analysis (replaced by AI analysis in `AIResumeAnalyzer`)
+- **ATSScorerService**: Legacy scoring logic (replaced by `ATSScoreValidator` and AI analysis)
 
 ## Scoring Algorithm
 
