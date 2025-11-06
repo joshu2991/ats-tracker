@@ -17,10 +17,10 @@ class AIResumeAnalyzer
     public function __construct()
     {
         $this->apiKey = config('services.openai.key');
-        $this->timeout = config('services.openai.timeout', 30);
+        $this->timeout = config('services.openai.timeout', AIResumeAnalyzerConstants::DEFAULT_TIMEOUT);
 
         $this->client = new Client([
-            'base_uri' => 'https://api.openai.com/v1/',
+            'base_uri' => AIResumeAnalyzerConstants::API_BASE_URI,
             'headers' => [
                 'Authorization' => 'Bearer '.($this->apiKey ?? ''),
                 'Content-Type' => 'application/json',
@@ -43,9 +43,8 @@ class AIResumeAnalyzer
         }
 
         // Truncate resume text if too long (to stay within token limits)
-        $maxChars = 8000;
-        if (strlen($resumeText) > $maxChars) {
-            $resumeText = substr($resumeText, 0, $maxChars).'... [truncated]';
+        if (strlen($resumeText) > AIResumeAnalyzerConstants::MAX_RESUME_TEXT_CHARS) {
+            $resumeText = substr($resumeText, 0, AIResumeAnalyzerConstants::MAX_RESUME_TEXT_CHARS).'... [truncated]';
         }
 
         $prompt = $this->buildPrompt($resumeText);
@@ -105,23 +104,22 @@ class AIResumeAnalyzer
      */
     protected function makeApiRequest(string $prompt): array
     {
-        $maxRetries = 1;
         $attempt = 0;
 
-        while ($attempt <= $maxRetries) {
+        while ($attempt <= AIResumeAnalyzerConstants::MAX_RETRY_ATTEMPTS) {
             try {
                 $response = $this->client->post('chat/completions', [
                     'json' => [
-                        'model' => 'gpt-4o-mini',
+                        'model' => AIResumeAnalyzerConstants::MODEL,
                         'messages' => [
                             [
                                 'role' => 'user',
                                 'content' => $prompt,
                             ],
                         ],
-                        'temperature' => 0.3,
+                        'temperature' => AIResumeAnalyzerConstants::TEMPERATURE,
                         'response_format' => ['type' => 'json_object'],
-                        'max_tokens' => 2000,
+                        'max_tokens' => AIResumeAnalyzerConstants::MAX_RESPONSE_TOKENS,
                     ],
                 ]);
 
@@ -135,10 +133,10 @@ class AIResumeAnalyzer
             } catch (GuzzleException $e) {
                 $attempt++;
 
-                if ($attempt > $maxRetries) {
+                if ($attempt > AIResumeAnalyzerConstants::MAX_RETRY_ATTEMPTS) {
                     // Exponential backoff on retry
-                    if ($attempt === 2) {
-                        sleep(1);
+                    if ($attempt === AIResumeAnalyzerConstants::RETRY_BACKOFF_ATTEMPT) {
+                        sleep(AIResumeAnalyzerConstants::RETRY_BACKOFF_SECONDS);
                     }
 
                     throw $e;
@@ -174,7 +172,7 @@ class AIResumeAnalyzer
         if (json_last_error() !== JSON_ERROR_NONE) {
             Log::error('Failed to parse OpenAI JSON response', [
                 'json_error' => json_last_error_msg(),
-                'content_preview' => substr($content, 0, 200),
+                'content_preview' => substr($content, 0, AIResumeAnalyzerConstants::ERROR_CONTENT_PREVIEW_LENGTH),
             ]);
             throw new \RuntimeException('Invalid JSON response from OpenAI API');
         }

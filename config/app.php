@@ -123,4 +123,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'github_url' => env('GITHUB_URL', 'https://github.com'),
+
 ];

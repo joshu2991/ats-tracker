@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { Sparkles, Github, Home, FileSearch, AlertTriangle, ArrowLeft } from 'lucide-react';
 
@@ -7,6 +7,8 @@ interface Props {
 }
 
 export default function MethodNotAllowed({ status = 405 }: Props) {
+    const { github_url } = usePage<{ github_url?: string }>().props;
+
     return (
         <>
             <Head title={`${status} - Method Not Allowed`} />
@@ -20,7 +22,7 @@ export default function MethodNotAllowed({ status = 405 }: Props) {
                             <span className="text-xl font-semibold text-slate-900">ATS Tracker</span>
                         </div>
                         <a
-                            href="https://github.com/joshu2991/ats-tracker"
+                            href={github_url || 'https://github.com'}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"

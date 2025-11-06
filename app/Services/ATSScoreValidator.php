@@ -13,114 +13,164 @@ class ATSScoreValidator
      */
     public function validate(array $parseabilityResults, ?array $aiResults): array
     {
-        $parseabilityScore = $parseabilityResults['score'] ?? 0;
-        $criticalIssues = $parseabilityResults['critical_issues'] ?? [];
-        $warnings = $parseabilityResults['warnings'] ?? [];
-
         // If AI analysis failed, return basic analysis with only hard checks
         if ($aiResults === null) {
             return $this->buildBasicAnalysis($parseabilityResults);
         }
 
-        // Extract scores from AI analysis - USE AI SCORES DIRECTLY
-        // The AI already provides accurate scores, we should trust them more
+        $parseabilityScore = $parseabilityResults['score'] ?? 0;
         $aiOverallScore = $aiResults['overall_assessment']['ats_compatibility_score'] ?? 0;
-        $formatScore = $aiResults['format_analysis']['score'] ?? 0;
 
-        // Extract keyword score from AI (use AI's assessment, not our calculation)
-        $keywordScore = $this->extractKeywordScoreFromAI($aiResults['keyword_analysis'] ?? []);
+        // Extract scores from AI analysis
+        $scores = $this->extractAIScores($aiResults);
 
-        // Extract contact score from AI (use AI's assessment)
-        $contactScore = $this->extractContactScoreFromAI($aiResults['contact_information'] ?? []);
+        // Apply thin content penalties before hard checks
+        $scores = $this->applyThinContentPenalties($scores, $aiResults);
 
-        // Extract content score from AI (use AI's assessment)
-        $contentScore = $this->extractContentScoreFromAI($aiResults['content_quality'] ?? []);
+        // Apply hard check overrides
+        $adjustedScores = $this->applyHardCheckOverrides(
+            $parseabilityResults,
+            $scores,
+            $aiOverallScore
+        );
 
-        // Penalize thin content (short resume with few achievements) - BEFORE applying hard checks
+        // Combine issues and suggestions
+        $combinedIssues = $this->combineIssues($parseabilityResults, $aiResults);
+
+        // Calculate metrics for overall score
+        $metrics = $this->calculateMetrics($parseabilityResults, $aiResults);
+
+        // Calculate overall score
+        $overallScore = $this->calculateOverallScore(
+            $parseabilityScore,
+            $adjustedScores,
+            $combinedIssues['critical'],
+            $aiOverallScore,
+            $metrics['word_count'],
+            $metrics['achievement_count'],
+            $metrics['experience_roles_count']
+        );
+
+        // Categorize issues based on scores
+        $categorizedIssues = $this->categorizeIssues(
+            $combinedIssues['critical'],
+            $combinedIssues['warnings'],
+            $combinedIssues['suggestions'],
+            $overallScore,
+            $adjustedScores
+        );
+
+        // Build final result
+        return $this->buildFinalResult(
+            $parseabilityScore,
+            $adjustedScores,
+            $overallScore,
+            $categorizedIssues,
+            $parseabilityResults
+        );
+    }
+
+    /**
+     * Extract all scores from AI analysis results.
+     *
+     * @param  array<string, mixed>  $aiResults
+     * @return array<string, int>
+     */
+    protected function extractAIScores(array $aiResults): array
+    {
+        return [
+            'format' => $aiResults['format_analysis']['score'] ?? 0,
+            'keyword' => $this->extractKeywordScoreFromAI($aiResults['keyword_analysis'] ?? []),
+            'contact' => $this->extractContactScoreFromAI($aiResults['contact_information'] ?? []),
+            'content' => $this->extractContentScoreFromAI($aiResults['content_quality'] ?? []),
+        ];
+    }
+
+    /**
+     * Apply penalties for thin content (short resumes with few achievements).
+     *
+     * @param  array<string, int>  $scores
+     * @param  array<string, mixed>  $aiResults
+     * @return array<string, int>
+     */
+    protected function applyThinContentPenalties(array $scores, array $aiResults): array
+    {
         $wordCount = $aiResults['content_quality']['estimated_word_count'] ?? 0;
         $hasQuantifiableAchievements = $aiResults['content_quality']['quantifiable_achievements'] ?? false;
         $achievementCount = count($aiResults['content_quality']['achievement_examples'] ?? []);
 
         // If resume is short AND lacks metrics: heavy penalty
-        if ($wordCount < 400 && ! $hasQuantifiableAchievements) {
-            $contentScore = min($contentScore, 35);
+        if ($wordCount < ATSScoreValidatorConstants::THIN_RESUME_WORD_COUNT && ! $hasQuantifiableAchievements) {
+            $scores['content'] = min($scores['content'], 35);
         }
 
-        // If resume has few achievement examples (< 3): penalty
-        if ($achievementCount < 3) {
-            $contentScore = max(0, $contentScore - 15);
+        // If resume has few achievement examples: penalty
+        if ($achievementCount < ATSScoreValidatorConstants::THIN_RESUME_ACHIEVEMENT_COUNT) {
+            $scores['content'] = max(ATSScoreValidatorConstants::MIN_SCORE, $scores['content'] - ATSScoreValidatorConstants::PENALTY_INSUFFICIENT_BULLETS);
         }
 
-        // Detect number of work experience roles/jobs
-        // Count job titles followed by dates in the resume text
-        $experienceRolesCount = $this->countExperienceRoles($parseabilityResults);
+        return $scores;
+    }
 
-        // Apply hard checks overrides - but only if there are actual critical issues
-        $adjustedScores = $this->applyHardCheckOverrides(
-            $parseabilityResults,
-            [
-                'format' => $formatScore,
-                'keyword' => $keywordScore,
-                'contact' => $contactScore,
-                'content' => $contentScore,
-            ],
-            $aiOverallScore
-        );
+    /**
+     * Combine issues from parseability results and AI analysis.
+     *
+     * @param  array<string, mixed>  $parseabilityResults
+     * @param  array<string, mixed>  $aiResults
+     * @return array<string, array<string>>
+     */
+    protected function combineIssues(array $parseabilityResults, array $aiResults): array
+    {
+        $criticalIssues = $parseabilityResults['critical_issues'] ?? [];
+        $warnings = $parseabilityResults['warnings'] ?? [];
 
-        // Combine issues and suggestions
-        $allCriticalIssues = array_merge(
-            $criticalIssues,
-            $aiResults['ats_red_flags'] ?? [],
-            $aiResults['critical_fixes_required'] ?? []
-        );
+        return [
+            'critical' => array_merge(
+                $criticalIssues,
+                $aiResults['ats_red_flags'] ?? [],
+                $aiResults['critical_fixes_required'] ?? []
+            ),
+            'warnings' => array_merge(
+                $warnings,
+                $this->extractWarningsFromAI($aiResults)
+            ),
+            'suggestions' => $aiResults['recommended_improvements'] ?? [],
+        ];
+    }
 
-        $allWarnings = array_merge(
-            $warnings,
-            $this->extractWarningsFromAI($aiResults)
-        );
-
-        $suggestions = $aiResults['recommended_improvements'] ?? [];
-
-        // Calculate overall score using improved logic
-        // Pass word count and achievement count for aggressive capping
-        // Use parseability checker's word count (more accurate) instead of AI's estimate
+    /**
+     * Calculate metrics needed for overall score calculation.
+     *
+     * @param  array<string, mixed>  $parseabilityResults
+     * @param  array<string, mixed>  $aiResults
+     * @return array<string, int>
+     */
+    protected function calculateMetrics(array $parseabilityResults, array $aiResults): array
+    {
+        // Use parseability checker's word count (more accurate), fallback to AI's estimate
         $parseabilityWordCount = $parseabilityResults['details']['document_length']['word_count'] ?? 0;
         $aiWordCount = $aiResults['content_quality']['estimated_word_count'] ?? 0;
-        // Prefer parseability checker's word count (more accurate), fallback to AI's estimate
         $wordCount = $parseabilityWordCount > 0 ? $parseabilityWordCount : $aiWordCount;
-        $achievementCount = count($aiResults['content_quality']['achievement_examples'] ?? []);
-        $experienceRolesCount = $this->countExperienceRoles($parseabilityResults);
 
-        $overallScore = $this->calculateOverallScore(
-            $parseabilityScore,
-            $adjustedScores,
-            $allCriticalIssues,
-            $aiOverallScore,
-            $wordCount,
-            $achievementCount,
-            $experienceRolesCount
-        );
+        return [
+            'word_count' => $wordCount,
+            'achievement_count' => count($aiResults['content_quality']['achievement_examples'] ?? []),
+            'experience_roles_count' => $this->countExperienceRoles($parseabilityResults),
+        ];
+    }
 
-        // Categorize issues properly based on scores
-        // CRITICAL (< 30 score): unparseable, no contact anywhere
-        // WARNING (30-60 score): contact in header, few keywords
-        // IMPROVEMENT (60-100 score): could use more keywords, stronger verbs
-        $categorizedIssues = $this->categorizeIssues(
-            $allCriticalIssues,
-            $allWarnings,
-            $suggestions,
-            $overallScore,
-            $adjustedScores
-        );
-
-        // Calculate confidence level
-        $confidence = $this->calculateConfidence(
-            $parseabilityResults,
-            $aiResults !== null
-        );
-
-        // Calculate estimated cost (approximate)
-        $estimatedCost = $this->calculateEstimatedCost($aiResults !== null);
+    /**
+     * Build the final result array.
+     *
+     * @param  array<string, int>  $adjustedScores
+     * @param  array<string, array<string>>  $categorizedIssues
+     * @param  array<string, mixed>  $parseabilityResults
+     * @return array<string, mixed>
+     */
+    protected function buildFinalResult(int $parseabilityScore, array $adjustedScores, int $overallScore, array $categorizedIssues, array $parseabilityResults): array
+    {
+        $confidence = $this->calculateConfidence($parseabilityResults, true);
+        $estimatedCost = $this->calculateEstimatedCost(true);
 
         return [
             'overall_score' => $overallScore,
@@ -155,7 +205,7 @@ class ATSScoreValidator
         $suggestions = $this->generateBasicSuggestions($parseabilityResults);
 
         return [
-            'overall_score' => min(100, $parseabilityScore + 20), // Cap at 100, give some credit for basic checks
+            'overall_score' => min(ATSScoreValidatorConstants::MAX_SCORE, $parseabilityScore + ATSScoreValidatorConstants::BASIC_ANALYSIS_BONUS), // Cap at max, give some credit for basic checks
             'confidence' => 'medium', // Lower confidence without AI
             'parseability_score' => $parseabilityScore,
             'format_score' => 0, // Cannot calculate without AI
@@ -188,13 +238,13 @@ class ATSScoreValidator
         $parseabilityScore = $parseabilityResults['score'] ?? 0;
         $hasCriticalIssues = ! empty($parseabilityResults['critical_issues'] ?? []);
 
-        // If parseability > 70 AND AI score > 70 AND no critical issues: trust AI scores, minimal adjustments
-        if ($parseabilityScore > 70 && $aiOverallScore > 70 && ! $hasCriticalIssues) {
+        // If parseability > threshold AND AI score > threshold AND no critical issues: trust AI scores, minimal adjustments
+        if ($parseabilityScore > ATSScoreValidatorConstants::GOOD_SCORE_THRESHOLD && $aiOverallScore > ATSScoreValidatorConstants::GOOD_SCORE_THRESHOLD && ! $hasCriticalIssues) {
             // Only apply critical overrides (scanned image)
             if (($details['text_extractability']['is_scanned_image'] ?? false) === true) {
-                $scores['format'] = min(20, $scores['format']);
-                $scores['keyword'] = min(20, $scores['keyword']);
-                $scores['content'] = min(20, $scores['content']);
+                $scores['format'] = min(ATSScoreValidatorConstants::PENALTY_SCANNED_IMAGE_MAX, $scores['format']);
+                $scores['keyword'] = min(ATSScoreValidatorConstants::PENALTY_SCANNED_IMAGE_MAX, $scores['keyword']);
+                $scores['content'] = min(ATSScoreValidatorConstants::PENALTY_SCANNED_IMAGE_MAX, $scores['content']);
             }
 
             // Return early - no other penalties if both scores are good
@@ -202,61 +252,61 @@ class ATSScoreValidator
         }
 
         // Apply penalties only if there are actual issues
-        // If scanned image detected: override AI score to max 20 (critical parsing issue)
+        // If scanned image detected: override AI score to max threshold (critical parsing issue)
         if (($details['text_extractability']['is_scanned_image'] ?? false) === true) {
-            $scores['format'] = min(20, $scores['format']);
-            $scores['keyword'] = min(20, $scores['keyword']);
-            $scores['content'] = min(20, $scores['content']);
+            $scores['format'] = min(ATSScoreValidatorConstants::PENALTY_SCANNED_IMAGE_MAX, $scores['format']);
+            $scores['keyword'] = min(ATSScoreValidatorConstants::PENALTY_SCANNED_IMAGE_MAX, $scores['keyword']);
+            $scores['content'] = min(ATSScoreValidatorConstants::PENALTY_SCANNED_IMAGE_MAX, $scores['content']);
         }
 
         // If date placeholders or missing dates detected: reduce format score significantly
         $dateDetection = $details['date_detection'] ?? [];
         if (($dateDetection['has_placeholders'] ?? false) === true) {
-            $scores['format'] = max(0, $scores['format'] - 25); // Heavy penalty for placeholders
+            $scores['format'] = max(ATSScoreValidatorConstants::MIN_SCORE, $scores['format'] - ATSScoreValidatorConstants::PENALTY_DATE_PLACEHOLDERS);
         } elseif (! ($dateDetection['has_valid_dates'] ?? true)) {
-            $scores['format'] = max(0, $scores['format'] - 30); // Critical: no dates at all
+            $scores['format'] = max(ATSScoreValidatorConstants::MIN_SCORE, $scores['format'] - ATSScoreValidatorConstants::PENALTY_NO_DATES);
         }
 
         // If name missing: reduce format score significantly
         $nameDetection = $details['name_detection'] ?? [];
         if (! ($nameDetection['has_name'] ?? true)) {
-            $scores['format'] = max(0, $scores['format'] - 20); // Critical: no name
+            $scores['format'] = max(ATSScoreValidatorConstants::MIN_SCORE, $scores['format'] - ATSScoreValidatorConstants::PENALTY_NO_NAME);
         }
 
         // If summary missing: reduce format score
         $summaryDetection = $details['summary_detection'] ?? [];
         if (! ($summaryDetection['has_summary'] ?? false)) {
-            $scores['format'] = max(0, $scores['format'] - 10); // Penalty for missing summary
+            $scores['format'] = max(ATSScoreValidatorConstants::MIN_SCORE, $scores['format'] - ATSScoreValidatorConstants::PENALTY_NO_SUMMARY);
         }
 
         // If insufficient bullet points: reduce content score
         $bulletPointCount = $details['bullet_point_count'] ?? [];
         $bulletCount = $bulletPointCount['count'] ?? 0;
-        if ($bulletCount < 12) {
+        if ($bulletCount < ATSParseabilityCheckerConstants::BULLETS_MIN_OPTIMAL) {
             $penalty = match (true) {
-                $bulletCount < 5 => 25, // Very few bullets - heavy penalty
-                $bulletCount < 8 => 20, // Few bullets - significant penalty
-                default => 15, // Some bullets but not enough
+                $bulletCount < ATSParseabilityCheckerConstants::BULLETS_VERY_FEW => ATSScoreValidatorConstants::PENALTY_VERY_FEW_BULLETS,
+                $bulletCount < ATSParseabilityCheckerConstants::BULLETS_FEW => ATSScoreValidatorConstants::PENALTY_FEW_BULLETS,
+                default => ATSScoreValidatorConstants::PENALTY_INSUFFICIENT_BULLETS,
             };
-            $scores['content'] = max(0, $scores['content'] - $penalty);
+            $scores['content'] = max(ATSScoreValidatorConstants::MIN_SCORE, $scores['content'] - $penalty);
         }
 
         // If no quantifiable metrics: reduce content score significantly
         $metricsDetection = $details['metrics_detection'] ?? [];
         if (! ($metricsDetection['has_metrics'] ?? false)) {
-            $scores['content'] = max(0, $scores['content'] - 20); // Penalty for lack of metrics
+            $scores['content'] = max(ATSScoreValidatorConstants::MIN_SCORE, $scores['content'] - ATSScoreValidatorConstants::PENALTY_NO_METRICS);
         }
 
-        // If tables detected: reduce format score by 20 points (apply even for warnings)
+        // If tables detected: reduce format score (apply even for warnings)
         // Stricter penalty aligned with ResumeWorded
         if (($details['table_detection']['has_tables'] ?? false) === true) {
-            $scores['format'] = max(0, $scores['format'] - 20);
+            $scores['format'] = max(ATSScoreValidatorConstants::MIN_SCORE, $scores['format'] - ATSScoreValidatorConstants::PENALTY_TABLES);
         }
 
-        // If multi-column layout detected: reduce format score by 15 points (apply even for warnings)
+        // If multi-column layout detected: reduce format score (apply even for warnings)
         // Stricter penalty aligned with ResumeWorded
         if (($details['multi_column']['has_multi_column'] ?? false) === true) {
-            $scores['format'] = max(0, $scores['format'] - 15);
+            $scores['format'] = max(ATSScoreValidatorConstants::MIN_SCORE, $scores['format'] - ATSScoreValidatorConstants::PENALTY_MULTI_COLUMN);
         }
 
         // If contact info not in first 300 chars: only penalize if contact doesn't exist at all
@@ -267,15 +317,15 @@ class ATSScoreValidator
         if (! $emailInAcceptableArea && ! $phoneInAcceptableArea) {
             // Only reduce if contact doesn't exist at all
             if (! ($contactLocation['email_exists'] ?? false) && ! ($contactLocation['phone_exists'] ?? false)) {
-                $scores['contact'] = (int) ($scores['contact'] * 0.3); // Critical: no contact
+                $scores['contact'] = (int) ($scores['contact'] * ATSScoreValidatorConstants::CONTACT_NO_EXISTS_MULTIPLIER);
             }
             // If contact exists but not in ideal location, AI already accounted for this - don't double-penalize
         }
 
-        // If resume has more than 2 pages: reduce content score by 20%
+        // If resume has more than 2 pages: reduce content score
         $documentLength = $details['document_length'] ?? [];
-        if (($documentLength['page_count'] ?? 1) > 2 && $hasCriticalIssues) {
-            $scores['content'] = (int) ($scores['content'] * 0.8);
+        if (($documentLength['page_count'] ?? 1) > ATSParseabilityCheckerConstants::PAGE_COUNT_MAX && $hasCriticalIssues) {
+            $scores['content'] = (int) ($scores['content'] * ATSScoreValidatorConstants::CONTENT_LONG_RESUME_MULTIPLIER);
         }
 
         return $scores;
@@ -295,21 +345,21 @@ class ATSScoreValidator
         // More keywords = higher score, with industry alignment bonus
         // Stricter scoring aligned with ResumeWorded standards
         $baseScore = match (true) {
-            $totalKeywords >= 20 => 75,
-            $totalKeywords >= 15 => 65,
-            $totalKeywords >= 10 => 55,
-            $totalKeywords >= 5 => 45,
-            default => 25,
+            $totalKeywords >= 20 => ATSScoreValidatorConstants::KEYWORD_SCORE_20_PLUS,
+            $totalKeywords >= 15 => ATSScoreValidatorConstants::KEYWORD_SCORE_15_PLUS,
+            $totalKeywords >= 10 => ATSScoreValidatorConstants::KEYWORD_SCORE_10_PLUS,
+            $totalKeywords >= 5 => ATSScoreValidatorConstants::KEYWORD_SCORE_5_PLUS,
+            default => ATSScoreValidatorConstants::KEYWORD_SCORE_DEFAULT,
         };
 
         // Adjust based on industry alignment (reduced bonus)
         $adjustment = match ($industryAlignment) {
-            'high' => 10,
-            'medium' => 5,
+            'high' => ATSScoreValidatorConstants::KEYWORD_BONUS_HIGH_ALIGNMENT,
+            'medium' => ATSScoreValidatorConstants::KEYWORD_BONUS_MEDIUM_ALIGNMENT,
             default => 0,
         };
 
-        return min(100, $baseScore + $adjustment);
+        return min(ATSScoreValidatorConstants::MAX_SCORE, $baseScore + $adjustment);
     }
 
     /**
@@ -320,51 +370,51 @@ class ATSScoreValidator
     {
         $score = 0;
 
-        // Email: 30 points (critical)
+        // Email: points (critical)
         if ($contactInfo['email_found'] ?? false) {
-            $score += 30;
+            $score += ATSScoreValidatorConstants::CONTACT_EMAIL_POINTS;
             // Bonus if in top location
             if (($contactInfo['email_location'] ?? '') === 'top') {
-                $score += 20;
+                $score += ATSScoreValidatorConstants::CONTACT_EMAIL_TOP_BONUS;
             } elseif (($contactInfo['email_location'] ?? '') === 'middle') {
-                $score += 10;
+                $score += ATSScoreValidatorConstants::CONTACT_EMAIL_MIDDLE_BONUS;
             }
         }
 
-        // Phone: 20 points
+        // Phone: points
         if ($contactInfo['phone_found'] ?? false) {
-            $score += 20;
+            $score += ATSScoreValidatorConstants::CONTACT_PHONE_POINTS;
             // Bonus if in top location
             if (($contactInfo['phone_location'] ?? '') === 'top') {
-                $score += 10;
+                $score += ATSScoreValidatorConstants::CONTACT_PHONE_TOP_BONUS;
             } elseif (($contactInfo['phone_location'] ?? '') === 'middle') {
-                $score += 5;
+                $score += ATSScoreValidatorConstants::CONTACT_PHONE_MIDDLE_BONUS;
             }
         }
 
-        // LinkedIn: 15 points
+        // LinkedIn: points
         // LinkedIn as text ("LinkedIn") is acceptable - ATS can still parse it
         // Only full URL format is better, but not critical
         if ($contactInfo['linkedin_found'] ?? false) {
-            $score += 15;
+            $score += ATSScoreValidatorConstants::CONTACT_LINKEDIN_POINTS;
             // Check format - only minor deduction if not full URL
             // LinkedIn as text is acceptable, full URL is better but not critical
             if (! ($contactInfo['linkedin_format_correct'] ?? true)) {
-                $score -= 2; // Minor deduction if not full URL (not critical)
+                $score -= ATSScoreValidatorConstants::CONTACT_LINKEDIN_FORMAT_DEDUCTION;
             }
         }
 
-        // GitHub: 10 points
+        // GitHub: points
         if ($contactInfo['github_found'] ?? false) {
-            $score += 10;
+            $score += ATSScoreValidatorConstants::CONTACT_GITHUB_POINTS;
         }
 
-        // Location: 5 points
+        // Location: points
         if ($contactInfo['location_city_found'] ?? false) {
-            $score += 5;
+            $score += ATSScoreValidatorConstants::CONTACT_LOCATION_POINTS;
         }
 
-        return min(100, $score);
+        return min(ATSScoreValidatorConstants::MAX_SCORE, $score);
     }
 
     /**
@@ -375,55 +425,55 @@ class ATSScoreValidator
     {
         $score = 0;
 
-        // Action verbs: 25 points
+        // Action verbs: points
         if ($contentQuality['uses_action_verbs'] ?? false) {
-            $score += 25;
+            $score += ATSScoreValidatorConstants::CONTENT_ACTION_VERBS_POINTS;
             // Bonus if has multiple examples
             $actionVerbCount = count($contentQuality['action_verb_examples'] ?? []);
             if ($actionVerbCount >= 5) {
-                $score += 10;
+                $score += ATSScoreValidatorConstants::CONTENT_ACTION_VERBS_5_PLUS_BONUS;
             } elseif ($actionVerbCount >= 3) {
-                $score += 5;
+                $score += ATSScoreValidatorConstants::CONTENT_ACTION_VERBS_3_PLUS_BONUS;
             }
         }
 
-        // Quantifiable achievements: 25 points
+        // Quantifiable achievements: points
         if ($contentQuality['quantifiable_achievements'] ?? false) {
-            $score += 25;
+            $score += ATSScoreValidatorConstants::CONTENT_ACHIEVEMENTS_POINTS;
             // Bonus if has multiple examples
             $achievementCount = count($contentQuality['achievement_examples'] ?? []);
-            if ($achievementCount >= 3) {
-                $score += 10;
+            if ($achievementCount >= ATSScoreValidatorConstants::THIN_RESUME_ACHIEVEMENT_COUNT) {
+                $score += ATSScoreValidatorConstants::CONTENT_ACHIEVEMENTS_3_PLUS_BONUS;
             } elseif ($achievementCount >= 2) {
-                $score += 5;
+                $score += ATSScoreValidatorConstants::CONTENT_ACHIEVEMENTS_2_PLUS_BONUS;
             }
         }
 
-        // Appropriate length: 20 points
+        // Appropriate length: points
         if ($contentQuality['appropriate_length'] ?? false) {
-            $score += 20;
+            $score += ATSScoreValidatorConstants::CONTENT_LENGTH_POINTS;
         } else {
             // Partial credit based on word count
             $wordCount = $contentQuality['estimated_word_count'] ?? 0;
-            if ($wordCount >= 300 && $wordCount < 400) {
-                $score += 10; // Close to optimal
+            if ($wordCount >= 300 && $wordCount < ATSScoreValidatorConstants::THIN_RESUME_WORD_COUNT) {
+                $score += ATSScoreValidatorConstants::CONTENT_LENGTH_CLOSE_PARTIAL;
             } elseif ($wordCount >= 800 && $wordCount <= 1000) {
-                $score += 10; // Slightly long but acceptable
+                $score += ATSScoreValidatorConstants::CONTENT_LENGTH_LONG_PARTIAL;
             }
         }
 
-        // Bullet points: 20 points
+        // Bullet points: points
         if ($contentQuality['has_bullet_points'] ?? false) {
-            $score += 20;
+            $score += ATSScoreValidatorConstants::CONTENT_BULLETS_POINTS;
         }
 
-        return min(100, $score);
+        return min(ATSScoreValidatorConstants::MAX_SCORE, $score);
     }
 
     /**
      * Calculate overall score combining all factors.
      * Aligned with ResumeWorded: more conservative scoring.
-     * If parseability > 70 AND AI score > 70: use weighted combination (AI 50%, parseability 50%).
+     * If parseability > threshold AND AI score > threshold: use weighted combination (AI 50%, parseability 50%).
      * Otherwise: use weighted average of all categories.
      *
      * @param  array<string, int>  $scores
@@ -431,94 +481,137 @@ class ATSScoreValidator
      */
     protected function calculateOverallScore(int $parseabilityScore, array $scores, array $criticalIssues, int $aiOverallScore, int $wordCount = 0, int $achievementCount = 0, int $experienceRolesCount = 0): int
     {
-        // If both parseability and AI scores are good (> 70), use balanced weighting
-        if ($parseabilityScore > 70 && $aiOverallScore > 70 && empty($criticalIssues)) {
-            // Use AI score 50%, parseability 50% (more conservative than before)
-            // Example: AI 80, parseability 75 → 80*0.5 + 75*0.5 = 40 + 37.5 = 77.5
-            $finalScore = (int) round(($aiOverallScore * 0.5) + ($parseabilityScore * 0.5));
-
-            // Apply aggressive cap for thin resumes even if scores are good
-            // This ensures entry-level resumes are scored appropriately
-            if ($wordCount < 400 && $achievementCount < 3) {
-                $finalScore = min($finalScore, 40);
-            }
-
-            return $finalScore;
+        // If both scores are good, use balanced weighting
+        if ($this->shouldUseBalancedWeighting($parseabilityScore, $aiOverallScore, $criticalIssues)) {
+            return $this->calculateBalancedScore($parseabilityScore, $aiOverallScore, $wordCount, $achievementCount);
         }
 
         // Otherwise, use weighted average of all categories
-        // Weighted average:
-        // Parseability: 25% (increased from 20%)
-        // Format: 25%
-        // Keywords: 25% (decreased from 30%)
-        // Contact: 10%
-        // Content: 15%
+        $finalScore = $this->calculateWeightedAverage($parseabilityScore, $scores);
 
-        $weightedScore = (
-            ($parseabilityScore * 0.25) +
-            ($scores['format'] * 0.25) +
-            ($scores['keyword'] * 0.25) +
-            ($scores['contact'] * 0.10) +
-            ($scores['content'] * 0.15)
+        // Apply normalization if needed
+        $finalScore = $this->applyScoreNormalization($finalScore, $criticalIssues, $wordCount, $achievementCount);
+
+        // Apply ResumeWorded alignment factor
+        $finalScore = $this->applyAlignmentFactor($finalScore, $criticalIssues);
+
+        // Apply content-based penalties and caps
+        $finalScore = $this->applyContentBasedAdjustments($finalScore, $scores, $wordCount, $achievementCount);
+
+        return $finalScore;
+    }
+
+    /**
+     * Determine if balanced weighting should be used (both scores are good).
+     */
+    protected function shouldUseBalancedWeighting(int $parseabilityScore, int $aiOverallScore, array $criticalIssues): bool
+    {
+        return $parseabilityScore > ATSScoreValidatorConstants::GOOD_SCORE_THRESHOLD
+            && $aiOverallScore > ATSScoreValidatorConstants::GOOD_SCORE_THRESHOLD
+            && empty($criticalIssues);
+    }
+
+    /**
+     * Calculate balanced score using 50/50 weighting of AI and parseability scores.
+     */
+    protected function calculateBalancedScore(int $parseabilityScore, int $aiOverallScore, int $wordCount, int $achievementCount): int
+    {
+        $finalScore = (int) round(
+            ($aiOverallScore * ATSScoreValidatorConstants::WEIGHT_AI_WHEN_GOOD) +
+            ($parseabilityScore * ATSScoreValidatorConstants::WEIGHT_PARSEABILITY_WHEN_GOOD)
         );
 
-        $finalScore = (int) round($weightedScore);
-
-        // Score normalization: if final < 50 but no critical issues, bump to 52 (reduced from 55)
-        // This prevents false negatives for resumes that are actually decent but scored harshly
-        // Aligned with ResumeWorded: more conservative bump
-        // BUT: Skip normalization if resume is thin (short + few metrics) - these should be capped aggressively
-        $isThinResume = $wordCount < 400 && $achievementCount < 3;
-        if ($finalScore < 50 && empty($criticalIssues) && ! $isThinResume) {
-            $finalScore = max($finalScore, 52);
-        }
-
-        // Apply ResumeWorded alignment factor: reduce final score by 5-8% to match their standards
-        // This accounts for their stricter overall scoring
-        $baseAlignment = 0.92;
-
-        // Dynamic adjustment: if critical issues exist, be even stricter
-        $criticalIssueCount = count($criticalIssues);
-        if ($criticalIssueCount > 0) {
-            // More critical issues = stricter alignment (lower multiplier)
-            // 1 critical issue: 0.90, 2+: 0.88
-            $baseAlignment = match (true) {
-                $criticalIssueCount >= 2 => 0.88,
-                $criticalIssueCount >= 1 => 0.90,
-                default => 0.92,
-            };
-        }
-
-        $finalScore = (int) round($finalScore * $baseAlignment);
-
-        // Additional penalty if content score is already low from AI (thin content)
-        $finalContentScore = $scores['content'] ?? 0;
-        if ($finalContentScore < 40) {
-            $finalScore = max(0, $finalScore - 10);
-        }
-
-        // Cap final score if resume has good format but lacks substantial content
-        // If format score is good (> 70) but content is poor (< 40), cap at 50
-        $finalFormatScore = $scores['format'] ?? 0;
-        if ($finalFormatScore > 70 && $finalContentScore < 40) {
-            $finalScore = min($finalScore, 50);
-        }
-
-        // Additional aggressive cap for thin resumes (short + few metrics + only 1 job)
-        // This aligns with ResumeWorded's stricter scoring for entry-level resumes
-        // If resume is short (<400 words) AND has few metrics (<3): cap more aggressively
-        // For entry-level resumes, it's very likely they have only 1 job
-        // If resume is short and has few metrics, assume entry-level (1 job) and cap aggressively
-        // The date count can include education/projects, so we can't rely on it alone
-        // Instead, if resume is short and has few metrics, directly cap to 40 (entry-level assumption)
-        // This aligns with ResumeWorded's score of 39 for similar resumes
-        if ($wordCount < 400 && $achievementCount < 3) {
-            // Directly cap to 40 for entry-level resumes (short + few metrics = likely 1 job)
-            // This is more aggressive and aligns with ResumeWorded's scoring (39 for Kassem)
-            $finalScore = min($finalScore, 40);
+        // Apply aggressive cap for thin resumes even if scores are good
+        if ($this->isThinResume($wordCount, $achievementCount)) {
+            $finalScore = min($finalScore, ATSScoreValidatorConstants::ENTRY_LEVEL_CAP_SCORE);
         }
 
         return $finalScore;
+    }
+
+    /**
+     * Calculate weighted average of all score categories.
+     *
+     * @param  array<string, int>  $scores
+     */
+    protected function calculateWeightedAverage(int $parseabilityScore, array $scores): int
+    {
+        return (int) round(
+            ($parseabilityScore * ATSScoreValidatorConstants::WEIGHT_PARSEABILITY) +
+            ($scores['format'] * ATSScoreValidatorConstants::WEIGHT_FORMAT) +
+            ($scores['keyword'] * ATSScoreValidatorConstants::WEIGHT_KEYWORD) +
+            ($scores['contact'] * ATSScoreValidatorConstants::WEIGHT_CONTACT) +
+            ($scores['content'] * ATSScoreValidatorConstants::WEIGHT_CONTENT)
+        );
+    }
+
+    /**
+     * Apply score normalization (bump minimum score if no critical issues).
+     */
+    protected function applyScoreNormalization(int $finalScore, array $criticalIssues, int $wordCount, int $achievementCount): int
+    {
+        $isThinResume = $this->isThinResume($wordCount, $achievementCount);
+
+        if ($finalScore < ATSScoreValidatorConstants::NORMALIZATION_THRESHOLD
+            && empty($criticalIssues)
+            && ! $isThinResume) {
+            $finalScore = max($finalScore, ATSScoreValidatorConstants::NORMALIZED_MIN_SCORE);
+        }
+
+        return $finalScore;
+    }
+
+    /**
+     * Apply ResumeWorded alignment factor based on critical issues.
+     */
+    protected function applyAlignmentFactor(int $finalScore, array $criticalIssues): int
+    {
+        $criticalIssueCount = count($criticalIssues);
+
+        $alignmentMultiplier = match (true) {
+            $criticalIssueCount >= 2 => ATSScoreValidatorConstants::ALIGNMENT_MULTIPLE_CRITICAL,
+            $criticalIssueCount >= 1 => ATSScoreValidatorConstants::ALIGNMENT_ONE_CRITICAL,
+            default => ATSScoreValidatorConstants::BASE_ALIGNMENT_MULTIPLIER,
+        };
+
+        return (int) round($finalScore * $alignmentMultiplier);
+    }
+
+    /**
+     * Apply content-based adjustments (penalties and caps).
+     *
+     * @param  array<string, int>  $scores
+     */
+    protected function applyContentBasedAdjustments(int $finalScore, array $scores, int $wordCount, int $achievementCount): int
+    {
+        // Additional penalty if content score is already low from AI (thin content)
+        $finalContentScore = $scores['content'] ?? 0;
+        if ($finalContentScore < ATSScoreValidatorConstants::POOR_CONTENT_THRESHOLD) {
+            $finalScore = max(ATSScoreValidatorConstants::MIN_SCORE, $finalScore - ATSScoreValidatorConstants::PENALTY_POOR_CONTENT);
+        }
+
+        // Cap final score if resume has good format but lacks substantial content
+        $finalFormatScore = $scores['format'] ?? 0;
+        if ($finalFormatScore > ATSScoreValidatorConstants::GOOD_SCORE_THRESHOLD
+            && $finalContentScore < ATSScoreValidatorConstants::POOR_CONTENT_THRESHOLD) {
+            $finalScore = min($finalScore, ATSScoreValidatorConstants::FORMAT_GOOD_CONTENT_POOR_CAP);
+        }
+
+        // Additional aggressive cap for thin resumes
+        if ($this->isThinResume($wordCount, $achievementCount)) {
+            $finalScore = min($finalScore, ATSScoreValidatorConstants::ENTRY_LEVEL_CAP_SCORE);
+        }
+
+        return $finalScore;
+    }
+
+    /**
+     * Check if resume is thin (short with few achievements).
+     */
+    protected function isThinResume(int $wordCount, int $achievementCount): bool
+    {
+        return $wordCount < ATSScoreValidatorConstants::THIN_RESUME_WORD_COUNT
+            && $achievementCount < ATSScoreValidatorConstants::THIN_RESUME_ACHIEVEMENT_COUNT;
     }
 
     /**
@@ -541,13 +634,13 @@ class ATSScoreValidator
             'improvements' => [],
         ];
 
-        // Critical issues: only if category score < 30 OR overall score < 30
+        // Critical issues: only if category score < threshold OR overall score < threshold
         // These are actual parsing problems that break ATS compatibility
         foreach ($criticalIssues as $issue) {
             // Check if it's a true critical issue (parsing problem)
-            $isTrueCritical = $overallScore < 30 ||
-                $scores['format'] < 30 ||
-                $scores['contact'] < 30 ||
+            $isTrueCritical = $overallScore < ATSScoreValidatorConstants::CRITICAL_SCORE_THRESHOLD ||
+                $scores['format'] < ATSScoreValidatorConstants::CRITICAL_SCORE_THRESHOLD ||
+                $scores['contact'] < ATSScoreValidatorConstants::CRITICAL_SCORE_THRESHOLD ||
                 str_contains(strtolower($issue), 'unparseable') ||
                 str_contains(strtolower($issue), 'no contact') ||
                 str_contains(strtolower($issue), 'scanned image');
@@ -560,7 +653,7 @@ class ATSScoreValidator
             }
         }
 
-        // Warnings: if score 30-60 or category score 30-60
+        // Warnings: if score threshold-60 or category score threshold-60
         foreach ($warnings as $warning) {
             $categorized['warnings'][] = $warning;
         }
@@ -679,7 +772,7 @@ class ATSScoreValidator
         $score = 0;
 
         if ($contactLocation['email_in_first_200'] ?? false) {
-            $score += 5;
+            $score += ATSScoreValidatorConstants::CONTACT_LOCATION_POINTS;
         } elseif ($contactLocation['email_exists'] ?? false) {
             $score += 2; // Partial credit if exists but not in first 200
         }
@@ -690,7 +783,7 @@ class ATSScoreValidator
             $score += 1; // Partial credit if exists but not in first 200
         }
 
-        return min(100, $score);
+        return min(ATSScoreValidatorConstants::MAX_SCORE, $score);
     }
 
     /**

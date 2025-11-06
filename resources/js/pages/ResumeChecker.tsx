@@ -49,7 +49,7 @@ export default function ResumeChecker({ analysis }: Props) {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const { showToast, removeToast, toasts } = useToast();
     const rateLimitToastShown = useRef<boolean>(false); // Track if we've shown rate limit toast
-
+    const { github_url } = usePage<{ github_url?: string }>().props;
     const { data, setData, post, processing, errors, reset } = useForm({
         resume: null as File | null,
     });
@@ -180,7 +180,7 @@ export default function ResumeChecker({ analysis }: Props) {
                             <span className="text-xl font-semibold text-slate-900">ATS Tracker</span>
                         </div>
                         <a
-                            href="https://github.com/joshu2991/ats-tracker"
+                            href={github_url || 'https://github.com'}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
