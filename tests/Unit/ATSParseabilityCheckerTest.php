@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\ATSParseabilityChecker;
 use App\Services\ATSParseabilityCheckerConstants;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class ATSParseabilityCheckerTest extends TestCase
@@ -16,7 +17,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->checker = new ATSParseabilityChecker;
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_high_score_for_well_formatted_resume(): void
     {
         $resumeText = $this->createWellFormattedResume();
@@ -33,7 +34,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertContains($result['confidence'], ['high', 'medium', 'low']);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_scanned_image_pdf(): void
     {
         // Note: This test requires an actual PDF file to parse page count
@@ -41,7 +42,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->markTestSkipped('Requires actual PDF file parsing with poppler-utils');
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_tables_in_resume(): void
     {
         $resumeText = "Name\tTitle\tCompany\nJohn Doe\tEngineer\tAcme Inc\nJane Smith\tDeveloper\tTech Corp";
@@ -54,7 +55,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertNotEmpty($result['warnings']);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_multi_column_layout(): void
     {
         $resumeText = $this->createMultiColumnResume();
@@ -67,7 +68,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertNotEmpty($result['warnings']);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_contact_info_in_correct_location(): void
     {
         $resumeText = "John Doe\njohn.doe@example.com\n(555) 123-4567\n\nExperience\n...";
@@ -81,7 +82,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertTrue($contactLocation['phone_in_first_300'] ?? false);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_missing_contact_info(): void
     {
         $resumeText = "John Doe\n\nExperience\nSoftware Engineer";
@@ -95,7 +96,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertNotEmpty($result['critical_issues']);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_contact_info_too_far_from_top(): void
     {
         $resumeText = str_repeat("Lorem ipsum dolor sit amet.\n", 20).'john.doe@example.com';
@@ -109,7 +110,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertNotEmpty($result['warnings']);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_date_placeholders(): void
     {
         $resumeText = "Experience\nSoftware Engineer\n20XX - Present\n";
@@ -122,7 +123,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertNotEmpty($result['critical_issues']);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_valid_dates(): void
     {
         $resumeText = "Experience\nSoftware Engineer\nJan 2020 - Present\n";
@@ -135,7 +136,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertFalse($result['details']['date_detection']['has_placeholders'] ?? true);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_missing_dates(): void
     {
         $resumeText = "Experience\nSoftware Engineer\nNo dates provided";
@@ -148,7 +149,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertNotEmpty($result['critical_issues']);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_name_in_resume(): void
     {
         $resumeText = "John Michael Doe\njohn.doe@example.com\n";
@@ -160,7 +161,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertTrue($result['details']['name_detection']['has_name'] ?? false);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_missing_name(): void
     {
         $resumeText = "john.doe@example.com\nExperience\n";
@@ -173,7 +174,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertNotEmpty($result['critical_issues']);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_summary_section(): void
     {
         $resumeText = "John Doe\njohn.doe@example.com\n\nProfessional Summary\nExperienced software engineer with 5+ years of experience building scalable web applications. Proven track record of leading teams.\n\nExperience\n...";
@@ -185,7 +186,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertTrue($result['details']['summary_detection']['has_summary'] ?? false);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_missing_summary(): void
     {
         $resumeText = "John Doe\nExperience\nSoftware Engineer";
@@ -198,7 +199,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertNotEmpty($result['warnings']);
     }
 
-    /** @test */
+    #[Test]
     public function it_counts_bullet_points_correctly(): void
     {
         $resumeText = "Experience\n• Led development team\n• Built scalable applications\n• Managed projects\n";
@@ -211,7 +212,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertGreaterThanOrEqual(3, $bulletCount);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_insufficient_bullet_points(): void
     {
         $resumeText = "Experience\n• Only one bullet point\n";
@@ -225,7 +226,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertNotEmpty($result['warnings']);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_quantifiable_metrics(): void
     {
         $resumeText = "John Doe\njohn.doe@example.com\n\nExperience\nSoftware Engineer\nCompany XYZ\nJan 2020 - Present\n• Increased sales by 30%\n• Managed team of 5 developers\n• Reduced costs by $50K\n• Improved performance by 40%\n";
@@ -237,7 +238,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertTrue($result['details']['metrics_detection']['has_metrics'] ?? false);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_missing_quantifiable_metrics(): void
     {
         $resumeText = "Experience\n• Led development team\n• Worked on projects\n• Collaborated with team\n";
@@ -250,7 +251,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertNotEmpty($result['warnings']);
     }
 
-    /** @test */
+    #[Test]
     public function it_penalizes_short_resume(): void
     {
         $resumeText = str_repeat('word ', 200); // Less than 400 words
@@ -266,7 +267,7 @@ class ATSParseabilityCheckerTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function it_penalizes_long_resume(): void
     {
         $resumeText = str_repeat('word ', 1000); // More than 800 words
@@ -282,7 +283,7 @@ class ATSParseabilityCheckerTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function it_accepts_optimal_length_resume(): void
     {
         $resumeText = str_repeat('word ', 600); // Between 400-800 words
@@ -295,7 +296,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertTrue($result['details']['document_length']['is_optimal'] ?? false);
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_experience_level(): void
     {
         $resumeText = "Experience\nSoftware Engineer\nJan 2020 - Present\nSenior Engineer\nJan 2018 - Dec 2019\nEngineer\nJan 2016 - Dec 2017\n";
@@ -309,7 +310,7 @@ class ATSParseabilityCheckerTest extends TestCase
         $this->assertGreaterThanOrEqual(5, $experienceLevel['years'] ?? 0);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_correct_structure(): void
     {
         $resumeText = $this->createWellFormattedResume();

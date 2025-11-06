@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\ATSScoreValidator;
 use App\Services\ATSScoreValidatorConstants;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class ATSScoreValidatorTest extends TestCase
@@ -16,7 +17,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->validator = new ATSScoreValidator;
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_basic_analysis_when_ai_unavailable(): void
     {
         $parseabilityResults = $this->createParseabilityResults();
@@ -30,7 +31,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertArrayHasKey('parseability_score', $result);
     }
 
-    /** @test */
+    #[Test]
     public function it_validates_with_ai_results(): void
     {
         $parseabilityResults = $this->createParseabilityResults();
@@ -47,7 +48,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertIsInt($result['overall_score']);
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_scanned_image_penalty(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -65,7 +66,7 @@ class ATSScoreValidatorTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_date_placeholder_penalty(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -84,7 +85,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertLessThan(80, $result['format_score']);
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_missing_name_penalty(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -103,7 +104,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertLessThan(80, $result['format_score']);
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_missing_summary_penalty(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -122,7 +123,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertLessThan(80, $result['format_score']);
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_insufficient_bullets_penalty(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -137,7 +138,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertLessThan(80, $result['content_score']);
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_no_metrics_penalty(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -152,7 +153,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertLessThan(80, $result['content_score']);
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_table_detection_penalty(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -171,7 +172,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertLessThan(80, $result['format_score']);
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_multi_column_penalty(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -190,7 +191,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertLessThan(80, $result['format_score']);
     }
 
-    /** @test */
+    #[Test]
     public function it_applies_thin_content_penalty(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -212,7 +213,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertLessThan(80, $result['content_score']);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_balanced_weighting_for_good_scores(): void
     {
         $parseabilityResults = $this->createParseabilityResults(['score' => 75]);
@@ -243,7 +244,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertGreaterThan(70, $result['overall_score']);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_weighted_average_for_mixed_scores(): void
     {
         $parseabilityResults = $this->createParseabilityResults(['score' => 50]);
@@ -272,7 +273,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertLessThanOrEqual(100, $result['overall_score']);
     }
 
-    /** @test */
+    #[Test]
     public function it_categorizes_issues_correctly(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -292,7 +293,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertNotEmpty($result['suggestions']);
     }
 
-    /** @test */
+    #[Test]
     public function it_caps_entry_level_resumes(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -325,7 +326,7 @@ class ATSScoreValidatorTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function it_combines_issues_from_parseability_and_ai(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -348,7 +349,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertGreaterThanOrEqual(1, count($result['suggestions']));
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_confidence_correctly(): void
     {
         $parseabilityResults = $this->createParseabilityResults([
@@ -363,7 +364,7 @@ class ATSScoreValidatorTest extends TestCase
         $this->assertContains($result['confidence'], ['high', 'medium', 'low']);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_correct_structure(): void
     {
         $parseabilityResults = $this->createParseabilityResults();

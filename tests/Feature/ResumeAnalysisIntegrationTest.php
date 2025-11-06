@@ -6,6 +6,7 @@ use App\Services\ATSParseabilityChecker;
 use App\Services\ATSScoreValidator;
 use App\Services\ResumeParserService;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class ResumeAnalysisIntegrationTest extends TestCase
@@ -26,56 +27,56 @@ class ResumeAnalysisIntegrationTest extends TestCase
         $this->scoreValidator = new ATSScoreValidator;
     }
 
-    /** @test */
+    #[Test]
     public function it_completes_full_analysis_flow_with_pdf(): void
     {
         // This test requires actual PDF parsing with poppler-utils
         $this->markTestSkipped('Requires actual PDF file parsing with poppler-utils');
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_analysis_without_ai(): void
     {
         // This test requires actual PDF parsing with poppler-utils
         $this->markTestSkipped('Requires actual PDF file parsing with poppler-utils');
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_issues_in_poorly_formatted_resume(): void
     {
         // This test requires actual PDF parsing with poppler-utils
         $this->markTestSkipped('Requires actual PDF file parsing with poppler-utils');
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_scanned_image_detection(): void
     {
         // This test requires actual PDF parsing with poppler-utils
         $this->markTestSkipped('Requires actual PDF file parsing with poppler-utils');
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_table_detection(): void
     {
         // This test requires actual PDF parsing with poppler-utils
         $this->markTestSkipped('Requires actual PDF file parsing with poppler-utils');
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_contact_info_detection(): void
     {
         // This test requires actual PDF parsing with poppler-utils
         $this->markTestSkipped('Requires actual PDF file parsing with poppler-utils');
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_bullet_point_counting(): void
     {
         // This test requires actual PDF parsing with poppler-utils
         $this->markTestSkipped('Requires actual PDF file parsing with poppler-utils');
     }
 
-    /** @test */
+    #[Test]
     public function it_handles_metrics_detection(): void
     {
         // This test requires actual PDF parsing with poppler-utils
