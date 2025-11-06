@@ -4,6 +4,12 @@ namespace Tests\Unit;
 
 use App\Services\ATSParseabilityChecker;
 use App\Services\ATSParseabilityCheckerConstants;
+use App\Services\Detectors\BulletPointDetector;
+use App\Services\Detectors\ContentDetector;
+use App\Services\Detectors\ExperienceAnalyzer;
+use App\Services\Detectors\FormatDetector;
+use App\Services\Detectors\LengthAnalyzer;
+use App\Services\Detectors\MetricsDetector;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -14,7 +20,14 @@ class ATSParseabilityCheckerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->checker = new ATSParseabilityChecker;
+        $this->checker = new ATSParseabilityChecker(
+            new FormatDetector,
+            new ContentDetector,
+            new LengthAnalyzer,
+            new BulletPointDetector,
+            new MetricsDetector,
+            new ExperienceAnalyzer
+        );
     }
 
     #[Test]

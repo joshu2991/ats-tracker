@@ -87,14 +87,6 @@ class ResumeController extends Controller
         }
 
         try {
-            // Log file upload attempt
-            Log::info('Resume analysis request', [
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'filename' => $file->getClientOriginalName(),
-                'size' => $file->getSize(),
-                'mime_type' => $file->getMimeType(),
-            ]);
 
             // Ensure temp directory exists and is writable
             $tempDir = storage_path('app/temp');

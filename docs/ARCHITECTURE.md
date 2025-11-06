@@ -85,10 +85,7 @@ ats-tracker/
 │       ├── ATSParseabilityCheckerConstants.php  # Parseability constants
 │       ├── ATSScoreValidator.php         # Score validation & combination
 │       ├── ATSScoreValidatorConstants.php # Score validator constants
-│       ├── ATSScorerService.php          # Legacy scoring (test-only)
-│       ├── KeywordAnalyzerService.php    # Legacy keyword detection (test-only)
-│       ├── ResumeParserService.php       # PDF/DOCX text extraction
-│       └── SectionDetectorService.php    # Legacy section detection (test-only)
+│       └── ResumeParserService.php       # PDF/DOCX text extraction
 ├── resources/
 │   ├── js/
 │   │   ├── pages/
@@ -144,11 +141,4 @@ Validates and combines results from parseability checks and AI analysis. Applies
 
 ### ResumeParserService
 Extracts text from PDF and DOCX files. Uses multiple parsers with fallback mechanisms to ensure maximum compatibility.
-
-### Legacy Services (Test-Only)
-**Note**: The following services are legacy and not used in the actual application flow. They are kept for backward compatibility with existing tests:
-
-- **SectionDetectorService**: Legacy section and contact detection (replaced by `ATSParseabilityChecker`)
-- **KeywordAnalyzerService**: Legacy keyword analysis (replaced by AI analysis in `AIResumeAnalyzer`)
-- **ATSScorerService**: Legacy scoring logic (replaced by `ATSScoreValidator` and AI analysis)
 

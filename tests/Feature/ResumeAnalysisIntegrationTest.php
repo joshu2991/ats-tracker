@@ -4,6 +4,12 @@ namespace Tests\Feature;
 
 use App\Services\ATSParseabilityChecker;
 use App\Services\ATSScoreValidator;
+use App\Services\Detectors\BulletPointDetector;
+use App\Services\Detectors\ContentDetector;
+use App\Services\Detectors\ExperienceAnalyzer;
+use App\Services\Detectors\FormatDetector;
+use App\Services\Detectors\LengthAnalyzer;
+use App\Services\Detectors\MetricsDetector;
 use App\Services\ResumeParserService;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
@@ -23,7 +29,14 @@ class ResumeAnalysisIntegrationTest extends TestCase
         Storage::fake('local');
 
         $this->parser = new ResumeParserService;
-        $this->parseabilityChecker = new ATSParseabilityChecker;
+        $this->parseabilityChecker = new ATSParseabilityChecker(
+            new FormatDetector,
+            new ContentDetector,
+            new LengthAnalyzer,
+            new BulletPointDetector,
+            new MetricsDetector,
+            new ExperienceAnalyzer
+        );
         $this->scoreValidator = new ATSScoreValidator;
     }
 
