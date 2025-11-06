@@ -87,6 +87,15 @@ class ResumeController extends Controller
         }
 
         try {
+            // Log file upload attempt
+            Log::info('Resume analysis request', [
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'filename' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+                'mime_type' => $file->getMimeType(),
+            ]);
+
             // Ensure temp directory exists and is writable
             $tempDir = storage_path('app/temp');
             if (! is_dir($tempDir)) {
@@ -172,6 +181,14 @@ class ResumeController extends Controller
             // Redirect to GET route with preserve flag to avoid POST redirect issues
             return redirect()->route('resume-checker', ['preserve' => true])->with('success', 'Resume analyzed successfully!');
         } catch (\Exception $e) {
+            // Log errors for security monitoring
+            Log::warning('Resume analysis failed', [
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'error' => $e->getMessage(),
+                'error_type' => get_class($e),
+            ]);
+
             return back()->withErrors([
                 'resume' => $e->getMessage(),
             ]);

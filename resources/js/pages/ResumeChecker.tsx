@@ -1,5 +1,5 @@
-import { Head, router, useForm } from '@inertiajs/react';
-import { FormEvent, useRef, useState } from 'react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
     Sparkles,
@@ -48,6 +48,7 @@ export default function ResumeChecker({ analysis }: Props) {
     const [dragActive, setDragActive] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const { showToast, removeToast, toasts } = useToast();
+    const rateLimitToastShown = useRef<boolean>(false); // Track if we've shown rate limit toast
 
     const { data, setData, post, processing, errors, reset } = useForm({
         resume: null as File | null,
@@ -105,11 +106,31 @@ export default function ResumeChecker({ analysis }: Props) {
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         if (data.resume) {
+            // Reset rate limit toast flag when submitting new request
+            rateLimitToastShown.current = false;
             post('/resume/analyze', {
                 forceFormData: true,
+                onError: (errors) => {
+                    // Handle rate limit error
+                    if (errors.rate_limit && !rateLimitToastShown.current) {
+                        rateLimitToastShown.current = true;
+                        showToast(errors.rate_limit, 'warning', 8000);
+                    }
+                },
             });
         }
     };
+
+    // Check for rate limit errors from flash messages (only on initial page load)
+    const { errors: pageErrors } = usePage().props as any;
+    useEffect(() => {
+        // Only show toast if error exists and we haven't already shown it
+        // This prevents duplicate toasts when the form's onError also fires
+        if (pageErrors?.rate_limit && !rateLimitToastShown.current && !processing) {
+            rateLimitToastShown.current = true;
+            showToast(pageErrors.rate_limit, 'warning', 8000);
+        }
+    }, [pageErrors?.rate_limit, processing, showToast]);
 
     const handleReset = () => {
         setSelectedFile(null);

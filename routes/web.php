@@ -24,6 +24,10 @@ Route::get('/', function () {
 })->name('home');
 
 Route::get('/resume-checker', [ResumeController::class, 'index'])->name('resume-checker');
-Route::post('/resume/analyze', [ResumeController::class, 'analyze'])->name('resume.analyze');
+Route::post('/resume/analyze', [ResumeController::class, 'analyze'])
+    ->middleware('throttle:resume-analyze') // Custom rate limiter with custom response
+    ->name('resume.analyze');
 
-Route::post('/feedback', [FeedbackController::class, 'store'])->name('feedback.store');
+Route::post('/feedback', [FeedbackController::class, 'store'])
+    ->middleware('throttle:feedback') // Custom rate limiter with custom response
+    ->name('feedback.store');

@@ -1,7 +1,8 @@
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Star, Send, Loader2 } from 'lucide-react';
-import { useForm, router } from '@inertiajs/react';
+import { useForm, router, usePage } from '@inertiajs/react';
+import ToastContainer, { useToast } from './ToastContainer';
 
 interface FeedbackModalProps {
     isOpen: boolean;
@@ -12,11 +13,24 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     const [rating, setRating] = useState<number>(0);
     const [hoveredRating, setHoveredRating] = useState<number>(0);
     const [success, setSuccess] = useState<boolean>(false);
+    const { showToast, removeToast, toasts } = useToast();
+    const rateLimitToastShown = useRef<boolean>(false); // Track if we've shown rate limit toast
 
     const { data, setData, post, processing, errors, reset } = useForm({
         rating: 0,
         description: '',
     });
+
+    // Check for rate limit errors from flash messages (only on initial page load)
+    const { errors: pageErrors } = usePage().props as any;
+    useEffect(() => {
+        // Only show toast if error exists and we haven't already shown it
+        // This prevents duplicate toasts when the form's onError also fires
+        if (pageErrors?.rate_limit && !rateLimitToastShown.current && !processing) {
+            rateLimitToastShown.current = true;
+            showToast(pageErrors.rate_limit, 'warning', 8000);
+        }
+    }, [pageErrors?.rate_limit, processing, showToast]);
 
     // Sync rating state with form data
     useEffect(() => {
@@ -30,6 +44,8 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
             return;
         }
 
+        // Reset rate limit toast flag when submitting new request
+        rateLimitToastShown.current = false;
         post('/feedback', {
             preserveState: true,
             preserveScroll: true,
@@ -42,8 +58,13 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                     // The success message is handled by Inertia's flash messages
                 }, 1500);
             },
-            onError: () => {
-                // Errors will be displayed via the errors object
+            onError: (errors) => {
+                // Handle rate limit error
+                if (errors.rate_limit && !rateLimitToastShown.current) {
+                    rateLimitToastShown.current = true;
+                    showToast(errors.rate_limit, 'warning', 8000);
+                }
+                // Other errors will be displayed via the errors object
             },
         });
     };
@@ -74,6 +95,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
         <AnimatePresence>
             {isOpen && (
                 <>
+                    <ToastContainer toasts={toasts} onRemove={removeToast} />
                     {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
