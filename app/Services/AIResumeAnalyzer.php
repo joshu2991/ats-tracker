@@ -71,130 +71,32 @@ class AIResumeAnalyzer
      */
     protected function buildPrompt(string $resumeText): string
     {
-        return <<<PROMPT
-You are an ATS (Applicant Tracking System) compatibility analyzer with expertise in how major ATS systems like Taleo, Greenhouse, Workday, and Lever parse resumes.
+        $promptTemplate = $this->loadPromptTemplate();
 
-IMPORTANT CONTEXT ABOUT ATS BEHAVIOR:
-- ATS systems fail to parse tables correctly - text gets scrambled or lost
-- Multi-column layouts cause text to be read in wrong order
-- Headers and footers are often ignored completely
-- Images, charts, and graphics are not readable
-- Standard section headers are critical: Experience, Education, Skills, not creative names
-- Keyword matching is literal and case-insensitive but requires exact words
-- Contact information must be in plain text in the first 100-150 words
-- File formats: DOCX parses better than PDF in most systems
-- Special characters and unusual fonts can cause parsing errors
+        // Replace placeholder with actual resume text
+        return str_replace('{RESUME_TEXT}', $resumeText, $promptTemplate);
+    }
 
-SCORING CALIBRATION RULES:
-- Accept section header variations: "Technical Skills" = "Skills" = "TECHNICAL SKILLS", "Work Experience" = "Experience" = "PROFESSIONAL EXPERIENCE", "Professional Experience" = "Experience"
-- "Professional Summary" = "Summary" = "PROFESSIONAL SUMMARY" = "Profile Overview" = "PROFILE OVERVIEW" - DO NOT flag "Professional Summary", "Profile Overview", or "PROFILE OVERVIEW" as missing Summary section
-- DO NOT flag "Technical Skills" or "TECHNICAL SKILLS" as missing Skills section - these are valid variations
-- DO NOT flag "Professional Summary" or "PROFESSIONAL SUMMARY" as missing Summary section - these are valid variations
-- Colon-separated format like "Front End: HTML, React" is GOOD formatting, NOT a table - do not flag as table issue
-- Skills section with categories like "Languages:", "Frameworks & Libraries:", "Tools & Databases:" is GOOD formatting - do NOT suggest reformatting or clearer separation
-- DO NOT generate contradictory warnings like "well-formatted but could benefit from clearer separation" - if it's well-formatted, it's acceptable
-- Contact in first 300 characters (not just 200) is acceptable for scoring
-- Standard resume with clear sections should score 55-70 (good structure)
-- Excellent resumes score 75-85, not 80-90
-- Only major penalties for actual parsing problems: image PDFs, real tables (3+ columns with borders), unreadable text
-- Be lenient on style variations - strict on format problems that break parsing
-- A resume with minor style issues but good structure should score 55-65, not 70-85
-- Be conservative with scoring - use strict industry standards
+    /**
+     * Load the ATS analysis prompt template.
+     */
+    protected function loadPromptTemplate(): string
+    {
+        $templatePath = resource_path('prompts/ats-analysis-prompt.txt');
 
-CONTENT QUALITY REQUIREMENTS (penalize heavily if missing):
-- Quantifiable Achievements: Each role should have at least 1-2 metrics (percentages, numbers, $ amounts)
-  * "Developed a chatbot" WITHOUT metrics: -10 points per role
-  * Example good: "Reduced query time by 40%" 
-  * Example bad: "Developed a chatbot" (no impact shown)
-- Resume Length & Detail:
-  * 346 words with only 1 job = -15 points (too thin)
-  * Fewer than 12 bullet points total in experience = -10 points
-  * Each role should have 3-5 detailed bullets with metrics
-- Resume Length & Detail (apply universally):
-  * Less than 300 words = too short, lacks detail
-  * 400-800 words = optimal for most roles
-  * Each role should have 3-5 bullets with specific achievements
-  * Fewer than 10 total bullets across experience = too sparse
-- A resume with good format but no metrics should score 35-50, NOT 70+.
+        if (! file_exists($templatePath)) {
+            Log::error('ATS analysis prompt template not found', ['path' => $templatePath]);
+            throw new \RuntimeException('ATS analysis prompt template file not found');
+        }
 
-Analyze this resume for ATS compatibility:
+        $template = file_get_contents($templatePath);
 
-{$resumeText}
+        if ($template === false) {
+            Log::error('Failed to read ATS analysis prompt template', ['path' => $templatePath]);
+            throw new \RuntimeException('Failed to read ATS analysis prompt template file');
+        }
 
-Provide a JSON analysis based on documented ATS parsing behavior from industry research:
-
-{
-  "format_analysis": {
-    "score": 0-100,
-        "section_headers_found": ["Professional Experience", "Education", "Technical Skills", "Professional Summary", "Profile Overview"],
-    "section_headers_missing": [],
-    "non_standard_headers": ["My Journey instead of Experience"],
-    "has_appropriate_structure": true/false,
-    "structure_issues": ["list specific formatting problems"],
-    "dates_found": true/false,
-    "dates_valid": true/false,
-    "date_placeholders_found": false,
-    "date_issues": ["list date-related issues if any"]
-  },
-  "keyword_analysis": {
-    "relevant_keywords_found": ["Laravel", "React", "AWS"],
-    "total_unique_keywords": 15,
-    "keyword_density": "appropriate/too_sparse/keyword_stuffing",
-    "missing_common_keywords": ["Docker", "CI/CD"],
-    "industry_alignment": "high/medium/low"
-  },
-  "contact_information": {
-    "email_found": true/false,
-    "email_location": "top/middle/bottom/not_found",
-    "phone_found": true/false,
-    "phone_location": "top/middle/bottom/not_found",
-    "linkedin_found": true/false,
-    "linkedin_format_correct": true/false,
-    "github_found": true/false,
-    "location_city_found": true/false
-  },
-  "content_quality": {
-    "uses_action_verbs": true/false,
-    "action_verb_examples": ["Led", "Built", "Optimized"],
-    "quantifiable_achievements": true/false,
-    "achievement_examples": ["reduced time by 80%", "increased signups by 100"],
-    "appropriate_length": true/false,
-    "estimated_word_count": 650,
-    "has_bullet_points": true/false,
-    "bullet_point_count": 15,
-    "bullet_points_optimal": true/false,
-    "quantifiable_metrics_count": 5,
-    "needs_more_metrics": true/false
-  },
-  "ats_red_flags": [
-    "Contact info appears to be in header/footer - will likely be missed by ATS",
-    "Skills section uses table format - may not parse correctly",
-    "Creative section header 'My Superpowers' instead of 'Skills'",
-    "No dates found in work experience or education - ATS systems require dates",
-    "Date placeholders like '20XX' found instead of actual dates - ATS cannot parse these"
-  ],
-  "critical_fixes_required": [
-    "Move email and phone to main body text at top of resume",
-    "Replace skills table with simple bullet list",
-    "Change 'My Journey' header to 'Professional Experience'",
-    "Add actual dates (e.g., '2023', 'Jan 2023', '2023-2024') to work experience and education - replace any placeholders like '20XX'"
-  ],
-  "recommended_improvements": [
-    "Add 5-8 more industry-standard relevant keywords",
-    "Include LinkedIn profile URL in contact section",
-    "Add more quantifiable achievements with numbers",
-    "Use stronger action verbs: Architected, Spearheaded, Orchestrated"
-  ],
-  "overall_assessment": {
-    "ats_compatibility_score": 0-100,
-    "likelihood_to_pass_ats": "high/medium/low",
-    "confidence_level": "high/medium/low",
-    "primary_concern": "brief description of biggest issue"
-  }
-}
-
-Base your analysis strictly on documented ATS parsing behavior and industry best practices. Be specific about WHY something is a problem, not just that it is. Reference which ATS systems specifically struggle with certain formats when relevant.
-PROMPT;
+        return $template;
     }
 
     /**
